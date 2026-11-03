@@ -11,14 +11,23 @@
 - Initial assignment is a technical audit and upstream simulator baseline, followed by
   a foundation recommendation for approval. This supersedes the earlier broad request
   to build an initial codebase.
+- Product direction: generative fish music maker with four species representing four
+  tracks/instruments, each with a distinct sound and fully editable FM synthesis.
+- User places a hook for a species. SEQ opens a per-track fishing minigame; catches
+  at specific intervals cause generative variation in that fish's musical theme.
+- Pixel art inspired by North American freshwater fish; exact species remain open.
+- Record fish sizes in a stats screen. Size units and its musical effect remain open.
+- Evaluate a fish-on sample / river-monster theme and propose useful additional
+  features and button mappings; evaluation is not implementation approval.
 
 ## Proposed, awaiting approval
 
 - Adopt a pinned `charlesvestal/fm1-base` revision and its pinned `felucca-bsp`, with a
   separate BLACKWATER C application and the existing host/browser simulator.
-- No synthesizer engines, sequencing, fishing mechanics, environmental simulation,
-  generative behavior, or application interface are approved. These remain possibilities,
-  not a roadmap.
+- Exact species, musical roles, FM topology and edit scope, hook controls, catch timing,
+  minigame mechanics, variation rules, and detailed interface remain undecided.
+- Sample playback, effects, additional performance features, and detailed button
+  assignments require approval before implementation.
 
 ## Completed
 
@@ -31,7 +40,8 @@
 ## Current tasks and pending decisions
 
 - Obtain foundation approval before importing framework or template code.
-- User to define the first application behavior and minimum acceptable experience.
+- Refine the approved fish-music direction into the first implementation scope;
+  resolve material fishing behavior and FM-editing choices with the user.
 - After approval: integrate the selected foundation, implement the approved scope,
   validate host/browser/device builds, and document reproducible setup.
 - GitHub Pages publication is pending separate user approval and a working BLACKWATER
