@@ -18,6 +18,8 @@ art/sound design, browser/device validation and the Jeremy Wade clip remain unfi
 
 - [Build instructions, controls, tests and limitations](docs/DEVELOPMENT.md)
 - [Project status and approved requirements](PROJECT.md)
+- [Claude continuation prompt](docs/handoff/CLAUDE_PROMPT.md)
+- [Claude technical handoff](docs/handoff/CLAUDE_HANDOFF.md)
 - [Actual firmware-package emulator integration status](docs/PACKAGE_EMULATION.md)
 - [Technical audit](docs/TECHNICAL_AUDIT.md)
 - [Contributor instructions](AGENTS.md)
