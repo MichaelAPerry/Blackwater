@@ -4,7 +4,21 @@ Recorded 2026-11-04 (Claude Code cloud session). Each level of evidence below is
 separate: compilation, host simulation, native binary emulation, Node-Wasm, automated
 Chromium, a person using the page, and physical hardware.
 
-## Summary
+## Version 2 (all approved features, the user's art), 2026-11-04
+
+- Device package: every fm1-base check passes; image 253,388 B (art included) of the 581,564 B slot; RAM
+  .data+.bss 48,044 of 98,304 B; pool 169,304 of 344,064 B (the effects' lines); backup and restore built in.
+- fm1-emu native, the chip at 240 MHz, all four fish cast and playing with the effects: the firmware's own readout
+  shows **audio load 56%, xruns 0**.
+- The site emulates 240 MHz (the page's own default, 100 MHz, is too slow for four fish). Headless Chromium in this
+  cloud machine kept 1.0–1.4x real time at 240 MHz; one fish showed 12% audio load and 1 xrun in a minute. A slow
+  computer or a phone may stutter: the page's clock menu trades that off.
+- The gated site build passes: native and Node-Wasm smoke, Chromium (audio after REC + PLAY, screens change for
+  REC/PLAY, SEQ, the catch log, ALGORITHM and SELECT; a catch saved survives a reload).
+- The browser test no longer compares screenshots that the animated screens make differ on their own, and
+  compares buffers without printing them (a failed comparison of two PNGs had run the machine out of memory).
+
+## Summary (first package, version 1)
 
 | Level | State |
 | --- | --- |

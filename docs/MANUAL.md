@@ -89,5 +89,5 @@ not read: the river starts fresh.
 
 Up to eight voices at once (the four parts, their release tails, live keys and the arpeggiator share them). With all
 four fish playing and the effects on, the audio takes about 56% of the chip's time at 240 MHz (measured by the
-firmware in fm1-emu; not yet on a real FM-1). The pixel art is placeholder until the art sheets arrive
-(`docs/ART_PROMPTS.md`); no clip ships unless one is supplied.
+firmware in fm1-emu; not yet on a real FM-1). The rare fish borrow their cousins' sprites until their own sheets
+arrive (`docs/ART_PROMPTS.md`); no clip ships unless one is supplied.

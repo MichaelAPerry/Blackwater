@@ -101,6 +101,17 @@ try {
     const emptyLog = await shot('0-log-empty');   // the catch log before any fish
     await press('7');
     const river = await shot('1-river');
+    // encoders, as the page's keys turn them (fm1-emu: arrows left/right SELECT, up/down PRESETS, , . ALGORITHM)
+    const turn = async (key, name) => { await page.keyboard.press(key); await page.waitForTimeout(400); return lcdShot(page, name); };
+    const home = await lcdShot(page, '8-river');
+    const track2 = await turn('.', '9-algorithm-track2');
+    assert.ok(!track2.equals(home), 'ALGORITHM did not select another track');
+    const next = await turn('ArrowRight', '11-select-next-screen');
+    assert.ok(!next.equals(track2), 'SELECT did not move to the next screen');
+    log('encoders change the display');
+    await press(',');                                    // back to the first fish
+    await press('7');                                    // and the river
+
     const idle = await level(1000);
     log('stopped level', {rms: idle});
 
@@ -110,18 +121,18 @@ try {
     log('playing level', {rms: playing});
     assert.ok(playing > 0.001 && playing > idle * 4, `no audio from playback (${playing} vs ${idle})`);
     const cast = await shot('2-hook-placed');
-    assert.notDeepEqual(cast, river, 'REC/PLAY did not change the display');
+    assert.ok(!cast.equals(river), 'REC/PLAY did not change the display');
 
     await press('0');            // SEQ: fishing screen
     const fishing = await shot('3-fishing');
-    assert.notDeepEqual(fishing, cast, 'SEQ did not change the display');
+    assert.ok(!fishing.equals(cast), 'SEQ did not change the display');
 
     // wait for automatic catches (default waits 8-32 s)
     await page.waitForTimeout(40000);
     await press('7');            // HOME, HOME: the catch log
     await press('7');
     const stats = await shot('4-stats-before-save');
-    assert.notDeepEqual(stats, fishing, 'SEL did not change the display');
+    assert.ok(!stats.equals(fishing), 'SEL did not change the display');
     log('statistics shown');
 
     log('after a minute', {status: await page.locator('#status').textContent().catch(() => '')});
@@ -140,22 +151,9 @@ try {
     const restored = await shot('6-stats-after-reload');
     log('reloaded');
 
-    assert.notDeepEqual(restored, emptyLog, 'reloaded catch log is empty: the save did not persist');
+    assert.ok(!restored.equals(emptyLog), 'reloaded catch log is empty: the save did not persist');
     log('restored catch log differs from the empty one');
-    // encoders, as the page's keys turn them (fm1-emu: arrows left/right SELECT, up/down PRESETS, , . ALGORITHM)
-    const turn = async (key, name) => { await page.keyboard.press(key); await page.waitForTimeout(400); return lcdShot(page, name); };
-    await press('7');                                    // HOME: the river
-    const home = await lcdShot(page, '8-river');
-    const track2 = await turn('.', '9-algorithm-track2');
-    assert.notDeepEqual(track2, home, 'ALGORITHM did not select another track');
-    const presetsOutsideEdit = await turn('ArrowUp', '10-presets-outside-edit');
-    assert.deepEqual(presetsOutsideEdit, track2, 'PRESETS changed a screen other than EDIT');
-    const next = await turn('ArrowRight', '11-select-next-screen');
-    assert.notDeepEqual(next, track2, 'SELECT did not move to the next screen');
-    log('encoders change the display');
-    await other.close();
-    assert.notDeepEqual(restored, fresh, 'reloaded statistics equal a fresh session: the save did not persist');
-    log('restored statistics differ from a fresh profile');
+
     result.errors = errors;
 } finally {
     await browser.close().catch(() => {});

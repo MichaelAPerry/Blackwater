@@ -65,11 +65,20 @@ for src,name in [('platform/fm1-base/LICENSING.md','fm1-base-LICENSING.md'),
 shutil.copytree(root/'platform/fm1-base/LICENSES',out/'licenses/fm1-base-components')
 shutil.copytree(root/'platform/fm1-base/bsp/LICENSES',out/'licenses/felucca-bsp-components')
 (out/'build.json').write_text(json.dumps(metadata,indent=2)+'\n')
+# the user's website art (site/): hero, link preview, tab icon, card, resized for the web
+from PIL import Image
+for src, name, size in [('hero.png', 'hero.png', (1600, 600)), ('og.png', 'og.png', (1280, 640)),
+                        ('icon.png', 'icon.png', (64, 64)), ('card.png', 'card.png', (240, 240))]:
+    if (root/'site'/src).is_file():
+        Image.open(root/'site'/src).convert('RGBA').resize(size, Image.LANCZOS).save(out/name, optimize=True)
 page = '''<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>BLACKWATER · development emulator</title>
-<style>body{background:#051017;color:#d9e9df;font:16px system-ui;margin:24px auto;max-width:1100px;padding:0 16px}
-a{color:#93d6b3}iframe{width:100%;height:850px;border:1px solid #34534b}code{overflow-wrap:anywhere}</style>
-<h1>BLACKWATER</h1><p>Four fish. Four FM tracks. Development prototype.</p>
+<link rel="icon" href="icon.png"><meta property="og:title" content="BLACKWATER"><meta property="og:image" content="og.png">
+<meta property="og:description" content="Generative fish music for the M-VAVE FM-1, running in your browser.">
+<style>body{background:#060e0c;color:#ded6c2;font:16px system-ui;margin:24px auto;max-width:1100px;padding:0 16px}
+a{color:#e8aa46}img.hero{width:100%;height:auto;image-rendering:pixelated;border:1px solid #1e322c}iframe{width:100%;height:850px;border:1px solid #34534b}code{overflow-wrap:anywhere}</style>
+<img class="hero" src="hero.png" alt="A pixel-art river at night, a float on the water">
+<h1>BLACKWATER</h1><p>Four fish. Four FM voices. One river. Development build.</p>
 <p>This is the actual FM-1 firmware package running in the existing fm1-emu emulator.
 It passed native, Node-Wasm and automated Chromium checks before this page was built.
 It has not been tested on a physical FM-1.</p>
@@ -79,7 +88,7 @@ The piano keys play the chosen fish in the scale; the upper (black) keys bend it
 7 HOME river / catch log, 0 SEQ fishing / theme, 2 SCALE, 5 EDIT, 3 ENV, 4 LFO, 1 FX, 9 ARP, 6 GLOBAL, 8 SAVE.
 K1-K4 are the panel's knobs (drag them).</p>
 <p>The emulator runs the FM-1's chip at its own 240 MHz: a slower computer may stutter (the page's clock menu).</p>
-<p>Pixel art is placeholder until the art sheets arrive; the fish-on clip plays only in builds that include one.</p>
+<p>The rare fish (crappie, peacock bass, brook trout, flathead) borrow their cousins' sprites until their own art is in; the fish-on clip plays only in builds that include one.</p>
 <iframe src="emulator/?fw=blackwater&amp;mhz=240&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
 <p><a href="emulator/?fw=blackwater&amp;mhz=240">Open the full emulator</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
  · <a href="build.json">Build and validation details</a></p>

@@ -28,20 +28,48 @@ SHEETS.update({
     'portraits_rare': ('portraits_rare.png', 96, 64, 2, 2, False),
     'river': ('river.png', 240, 240, 3, 1, False),
     'props': ('props.png', 24, 24, 6, 3, True),
-    'banner': ('fish_on.png', 200, 48, 1, 1, True),
+    'banner': ('fish_on.png', 150, 50, 1, 1, True),  # the splash scene, 3:1
 })
 
 
 def is_key(rgb):
+    """magenta by hue, not by value: the key itself, pink grid lines, and the purple fringe where a generated image
+    blends the subject into the key"""
     r, g, b = rgb[:3]
-    return r > 180 and b > 180 and g < 100
+    return min(r, b) - g > 50 and abs(r - b) < 70
+
+
+def window(img, cols, rows, gw, gh):
+    """keyed sheets: the part of every cell that holds something (the union over the cells, so all frames share one
+    window and an animation does not jitter), widened to the sprite's proportions -> (x0, y0, source px per game px)
+    in cell coordinates"""
+    W, H = img.size
+    cw, ch = W // cols, H // rows
+    px = img.load()
+    x0 = y0 = 10 ** 9
+    x1 = y1 = -1
+    step = max(1, min(cw, ch) // 256)
+    for row in range(rows):
+        for col in range(cols):
+            for y in range(0, ch, step):
+                for x in range(0, cw, step):
+                    if not is_key(px[col * cw + x, row * ch + y]):
+                        x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x + step), max(y1, y + step)
+    if x1 < 0:
+        return 0.0, 0.0, cw / gw
+    s = max((x1 - x0) / gw, (y1 - y0) / gh)
+    return (x0 + x1) / 2 - gw * s / 2, (y0 + y1) / 2 - gh * s / 2, s
 
 
 def sample(img, gw, gh, cols, rows, keyed):
     """the sheet as game pixels: a list of cells, each gh rows of gw (r, g, b) or None (transparent)"""
     W, H = img.size
     cw, ch = W / cols, H / rows
-    sx, sy = cw / gw, ch / gh
+    if keyed:
+        ox, oy, sx = window(img, cols, rows, gw, gh)
+        sy = sx
+    else:
+        ox, oy, sx, sy = 0.0, 0.0, cw / gw, ch / gh
     px = img.load()
     cells = []
     for row in range(rows):
@@ -50,12 +78,18 @@ def sample(img, gw, gh, cols, rows, keyed):
             for j in range(gh):
                 line = []
                 for i in range(gw):
-                    x0, y0 = col * cw + i * sx, row * ch + j * sy
+                    bx, by = ox + i * sx, oy + j * sy
+                    if keyed and (bx < 0 or by < 0 or bx + sx > cw or by + sy > ch):
+                        line.append(None)
+                        continue
+                    x0, y0 = col * cw + bx, row * ch + by
                     # the middle of the block: edges blur in generated images
                     xs = range(int(x0 + sx * 0.375), max(int(x0 + sx * 0.625), int(x0 + sx * 0.375) + 1))
                     ys = range(int(y0 + sy * 0.375), max(int(y0 + sy * 0.625), int(y0 + sy * 0.375) + 1))
                     votes = collections.Counter(px[min(x, W - 1), min(y, H - 1)][:3] for y in ys for x in xs)
                     c = votes.most_common(1)[0][0]
+                    if not keyed and is_key(c):  # a divider between panels: the neighbour's colour
+                        c = line[-1] if line else (cell[-1][0] if cell else (0, 0, 0))
                     line.append(None if keyed and is_key(c) else c)
                 cell.append(line)
             cells.append(cell)

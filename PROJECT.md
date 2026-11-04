@@ -69,7 +69,8 @@ See `docs/MANUAL.md` for the player's view and `docs/DEVELOPMENT.md` for the sou
 - Version 2 (all approved features): engine, host-simulator and art/clip tests pass; the device package builds
   with every fm1-base check passing; in fm1-emu at the chip's 240 MHz, four fish playing with effects show 56%
   audio load and no xruns (the firmware's own readout). Evidence: `docs/PACKAGE_EMULATION.md`.
-- Not yet done: a person playing and listening, physical FM-1 testing, the art sheets, the clip, the Pages
+- The user's art is in (common fish, props, river, banner, site art); rare-fish sheets and portraits still wanted.
+- Not yet done: a person playing and listening, physical FM-1 testing, the clip, the Pages
   deployment (merge to main + Pages source "GitHub Actions"; the workflow has not run on GitHub yet).
 - The site emulates the chip at 240 MHz (the browser page's default is 100 MHz, too slow for four fish).
 - Upstream platform suite audit had reproducible `mirror`/`mirror-viewer` failures
