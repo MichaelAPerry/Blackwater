@@ -3,14 +3,31 @@
 Prepared 2026-11-04. This is a transfer of work, not a claim of completed firmware.
 Use `CLAUDE_PROMPT.md` for the product/governance brief.
 
-## Critical source-transfer fact
+## GitHub handoff branch
+
+Use branch **`codex/blackwater-claude-handoff`**, which the user authorized pushing
+without modifying `main`:
+
+```sh
+git clone --branch codex/blackwater-claude-handoff https://github.com/MichaelAPerry/Blackwater.git
+cd Blackwater
+git submodule update --init platform/fm1-base platform/fm1-emu
+git -C platform/fm1-base submodule update --init --recursive
+```
+
+The push result and remote commit are verified separately by the handing-off agent.
+The following section records the earlier state and optional offline recovery path;
+it is not a direction to ignore the published handoff branch.
+
+## Original source-transfer state
 
 Implementation HEAD before this documentation handoff:
 `e15f61ece450bc1ffac52be3d6fc24f114bded90`, local branch **work**.
 
 Read-only GitHub check at handoff:
 `refs/heads/main = 55ced919765acf904523f2527eb2b31a686cf09a` (initial license only).
-No remote `work` branch was returned. Codex has not pushed or published these changes.
+No remote `work` branch was returned at that original check. Implementation had not
+been pushed then; use the dedicated handoff branch above after publication.
 **Cloning GitHub main alone does not recover the implementation.**
 
 The supplied `BLACKWATER.bundle` contains the local root repository history, source,
@@ -238,6 +255,7 @@ Reuse compatible engineering infrastructure, not MIKU's product design/character
 | `d939039` | Actual-package/browser evaluation workflow research |
 | `e15f61e` | Pinned fm1-emu builds and prepared package/site validation |
 
-The bundle also contains a later documentation-only handoff commit. No source push,
-public deployment, hardware flashing or new product implementation was done for this
-handoff. Retain GPL/MPL/MIT/OFL notices; see `THIRD_PARTY.md` and upstream license files.
+The bundle contains the original documentation handoff commit. A subsequent user
+instruction authorized pushing the work to the dedicated GitHub handoff branch.
+No public site deployment, hardware flashing or new product implementation is part
+of that source transfer. Retain GPL/MPL/MIT/OFL notices; see `THIRD_PARTY.md` and upstream license files.

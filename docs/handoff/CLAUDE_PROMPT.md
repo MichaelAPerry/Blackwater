@@ -9,11 +9,12 @@ working firmware/emulator/build infrastructure where appropriate:
 - https://michaelaperry.github.io/MIKU-FM1/
 - https://github.com/MichaelAPerry/MPFM1
 
-Read the accompanying `CLAUDE_HANDOFF.md`, then the actual repository's `AGENTS.md`,
-`PROJECT.md`, and recent Git history. Do not assume GitHub contains the implementation:
-at handoff, GitHub main was still the license-only initial commit. A Git bundle contains
-Codex's local implementation and history. Recover that work before deciding anything
-is missing. Preserve my code and history; audit rather than blindly replace it.
+Start from the handoff branch `codex/blackwater-claude-handoff` in BLACKWATER's GitHub
+repository, not `main`. Read `docs/handoff/CLAUDE_HANDOFF.md`, then `AGENTS.md`,
+`PROJECT.md`, and recent Git history. At the original handoff, GitHub main was still
+the license-only initial commit. The user has now authorized publishing the existing
+implementation on this separate branch. A Git bundle is an optional offline backup.
+Preserve my code and history; audit rather than blindly replace it.
 
 ## Product direction I have approved
 
