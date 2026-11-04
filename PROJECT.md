@@ -8,6 +8,8 @@
   compatibility. No replacement emulator or disconnected browser demo.
 - Generative fish music maker: four North American freshwater species represent four
   tracks/instruments, each with a distinct sound and fully editable FM synthesis.
+- Approved species: Bluegill, Largemouth Bass, Brown Trout and Catfish. The user
+  selected Catfish without specifying a narrower species.
 - Pixel art; user places hooks; SEQ opens per-track fishing; catches at intervals
   generate variation in each fish's musical theme. Record sizes in a stats screen.
 - User approved the recommended fm1-base foundation and six-operator FM direction.
@@ -19,7 +21,7 @@
   specified and no audio asset has been supplied.
 - Simulator is the primary target. Publish only after separate approval.
 
-## Completed functionality
+## Implemented prototype functionality — not a completed product
 
 - Audited the original license-only repository and four requested reference projects;
   upstream template/Ravel desktop baselines recorded in `docs/TECHNICAL_AUDIT.md`.
@@ -27,8 +29,11 @@
 - Original BLACKWATER C application: four mono six-operator voices, eight routing
   presets, editable forward routes and carrier levels, ratios/fixed frequencies,
   per-operator feedback, velocity sensitivity and ADSR.
-- Hook placement/retrieval, transport, per-track automatic/timed fishing, missed bites,
-  zero-delay boundary safety, catch-driven motif changes, catch totals and sizes.
+- Prototype hook toggle, transport, per-track automatic/timed timers, missed bites,
+  zero-delay boundary safety, and catch counters/synthetic sizes.
+- Generation is currently narrow: initial sixteen-step patterns use fixed arithmetic
+  formulas; catches randomly replace pitches/gates in selected steps. This is not yet
+  species-specific composition, phrase development, or a finished fishing minigame.
 - Functional FM/envelope/fishing/global/statistics screens and a first river view.
 - Versioned single-object session save/load using platform storage; error feedback.
 - Pinned host setup, reproducible tests, UBSan engine tests and actual application
@@ -43,14 +48,14 @@
 - Size display in millimetres; generic 50-1000 mm synthetic catches until fish identities
   and species-specific size distributions are chosen.
 - Functional first control layout documented in `docs/DEVELOPMENT.md`; generic pixel
-  silhouettes labeled FISH 1-4 while species selection remains pending.
+  silhouettes with the approved species labels. Species-specific artwork is not done.
 - Saved sessions restart stopped, with hooks retrieved; explicit SAVE rather than
   autosave. Hardware flash-write interruption is not hidden.
 
 ## Proposed, awaiting approval or assets
 
-- Species cast proposed to user: largemouth bass, brook trout, bluegill, channel catfish.
-  No answer yet; do not treat the proposal as the approved cast.
+- Musical character and generative behavior per species remain to be designed with
+  the user. The current four generic patches are not approved species sound identities.
 - Jeremy Wade clip: needs the actual selected asset, provenance/distribution clearance,
   and trigger behavior before a public bundle. No substitute voice has been added.
 - Track locking, catch keep/release/undo, additional scale controls, effects, LFO
@@ -70,5 +75,12 @@
 - Upstream platform suite audit had reproducible `mirror`/`mirror-viewer` failures
   (56 other named groups passed). They remain upstream issues of unconfirmed cause.
 - See `docs/DEVELOPMENT.md` for exact current controls, tests, behavior and limitations.
-- Next: resolve browser environment prerequisite, obtain species/asset decisions,
+- Next: resolve browser environment prerequisite, obtain the clip and musical-behavior decisions,
   evaluate the first playable behavior with the user, and implement approved changes.
+
+## Communication correction
+
+- User challenged the completeness claim. Earlier reporting overstated the prototype.
+  Distinguish basic tested random motif mutation and timer/landing mechanics from the
+  intended generative fish-music experience. Neither musical quality nor finished
+  gameplay has been approved by the user.

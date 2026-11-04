@@ -28,7 +28,7 @@ enum
 };
 static const char *const bw_pages[] = {"RIVER",    "FISHING", "FM EDIT",
                                        "ENVELOPE", "GLOBAL",  "CATCH LOG"};
-static const char *const bw_names[] = {"FISH 1", "FISH 2", "FISH 3", "FISH 4"};
+static const char *const bw_names[] = {"BLUEGILL", "LARGEMOUTH BASS", "BROWN TROUT", "CATFISH"};
 static uint16_t bw_color(unsigned k)
 {
     static const uint16_t c[] = {RGB(97, 173, 118), RGB(226, 150, 94), RGB(87, 164, 203),

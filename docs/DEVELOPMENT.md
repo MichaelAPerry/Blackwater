@@ -58,8 +58,9 @@ Do not present these host screenshots as browser verification or a deployed demo
 - This is original FM synthesis, **not DX7 patch compatibility or the DX7's 32
   algorithms**. Sound parameters take effect fully on the next note; output/routing
   and some envelope settings can affect an already sounding voice.
-- Sixteen-step themes are initially generated from a repeatable seed and vary on
-  catches. Current provisional defaults: a minor-flavored scale, 100 BPM, four
+- Initial sixteen-step patterns are constructed by fixed arithmetic formulas. Catches
+  randomly mutate their pitches and gates using a repeatable PRNG. This is a basic
+  generative prototype, not species-specific composition or developed musical phrasing. Current provisional defaults: a minor-flavored scale, 100 BPM, four
   contrasting patches/registers. These are initial implementation values, not an
   approved final musical identity or species assignment.
 - Per-track hook placement/removal; automatic or timed catches. Editable wait bounds
@@ -105,8 +106,8 @@ Do not present these host screenshots as browser verification or a deployed demo
 
 Choosing a routing preset replaces custom routes/output assignments; it does not
 replace operator envelopes or frequency parameters. The current editor is functional
-but provisional. Generic original pixel silhouettes and FISH 1-4 labels deliberately
-avoid assigning the user's species without a decision.
+but provisional. Generic original pixel silhouettes now carry the approved Bluegill, Largemouth Bass,
+Brown Trout and Catfish labels. Species-specific artwork has not been implemented.
 
 ## Validation and limits
 
@@ -126,6 +127,6 @@ is guarded in `build.sh` until an unused firmware identity and the cross-toolcha
 are verified. Do not bypass this guard to flash the template identity.
 
 Known upstream USB-mirroring failures from the audit remain unresolved; upstream
-sources are unchanged. Final fish identities/art, species size distributions, the
+sources are unchanged. Species-specific art/sounds, species size distributions, the
 Jeremy Wade audio asset, effects/modulation features, and polished game behavior
 remain outstanding. No sample-player implementation is claimed.

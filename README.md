@@ -5,9 +5,10 @@ Four tracks use editable six-operator FM voices. Placing hooks enables generativ
 music; automatic or timed catches vary each track's theme and record fish sizes.
 
 The first C application runs through the existing **fm1-base desktop simulator**,
-including genuine firmware audio, controls, display and storage paths. Browser and
-physical-device validation are still outstanding. Generic fish labels/art await the
-user's species selection, and no Jeremy Wade sample has been included yet.
+including genuine firmware audio, controls, display and storage paths. Generation is
+currently simple random pitch/rhythm mutation of short patterns, not finished musical
+behavior. The tracks are Bluegill, Largemouth Bass, Brown Trout and Catfish; species
+art/sound design, browser/device validation and the Jeremy Wade clip remain unfinished.
 
 ```sh
 ./tools/setup.sh
