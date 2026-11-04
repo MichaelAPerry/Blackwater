@@ -1,0 +1,82 @@
+# The real BLACKWATER app on fm1-base's host simulator.
+wait 600
+expect valid 1
+expect playing 0
+shot river.png
+# Edit an operator, then prove the app produces audio through its firmware callback.
+tap EDIT
+turn K2 -10
+expect level 75
+key 7 down
+wav audition.wav
+wait 400
+wavstop
+expect peak_db_min -40
+key 7 up
+wait 2000
+# Configure immediate automatic catches; no catch while transport is stopped.
+tap SEQ
+turn K1 -8
+turn K2 -32
+expect wait_min 0
+expect wait_max 0
+tap REC
+expect hooked 1
+wait 500
+expect catches 0
+tap PLAY
+wav fishing.wav
+wait 1100
+wavstop
+expect catches >0
+expect best_mm >49
+expect best_mm <1001
+expect peak_db_min -45
+shot fishing.png
+# Another track: timed mode, land a bite, then miss one.
+turn ALGO 1
+turn K1 -8
+turn K2 -32
+turn K3 1
+expect manual 1
+tap REC
+wait 200
+expect bite 1
+tap REC
+expect catches 1
+wait 2400
+expect missed >0
+wait 120
+shot bite.png
+# All parameters, motifs, and size statistics saved in one atomic platform object.
+tap PLAY
+tap SAVE
+expect dirty 0
+expect store_writes 1
+reboot
+wait 600
+expect playing 0
+expect hooked 0
+expect catches >0
+expect level 75
+turn ALGO 1
+expect catches 1
+expect manual 1
+tap SEL
+wait 120
+expect page 5
+shot stats.png
+tap ENV
+wait 120
+expect page 3
+shot envelope.png
+# Store failure must be reported, not clear dirty state.
+tap EDIT
+turn K2 1
+expect dirty 1
+flash_fail 1
+tap SAVE
+expect dirty 1
+flash_fail 0
+tap SAVE
+expect dirty 0

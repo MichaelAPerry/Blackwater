@@ -1,18 +1,25 @@
 # BLACKWATER
 
-An original application for the M-VAVE FM-1, under user-led development.
+A generative fish music maker for the M-VAVE FM-1, under user-led development.
+Four tracks use editable six-operator FM voices. Placing hooks enables generative
+music; automatic or timed catches vary each track's theme and record fish sizes.
 
-The product's features and interface are not yet defined. Development must use the
-existing FM-1 firmware architecture and its simulator, including genuine firmware
-audio generation. No replacement emulator or independent web demonstration is planned.
+The first C application runs through the existing **fm1-base desktop simulator**,
+including genuine firmware audio, controls, display and storage paths. Browser and
+physical-device validation are still outstanding. Generic fish labels/art await the
+user's species selection, and no Jeremy Wade sample has been included yet.
 
-This repository currently contains the project record and technical audit; it does
-not yet contain firmware. The upstream simulator baseline is a research result, not
-a BLACKWATER demo.
+```sh
+./tools/setup.sh
+. build/venv/bin/activate
+./tests/run_tests.sh
+```
 
+- [Build instructions, controls, tests and limitations](docs/DEVELOPMENT.md)
 - [Project status and approved requirements](PROJECT.md)
-- [Technical audit and simulator baseline](docs/TECHNICAL_AUDIT.md)
+- [Technical audit](docs/TECHNICAL_AUDIT.md)
 - [Contributor instructions](AGENTS.md)
+- [Third-party notices](THIRD_PARTY.md)
 
-The existing GPL version 3 license is preserved. Upstream framework adoption and
-product scope await the user's approval.
+No replacement emulator, independent JavaScript DSP, or deployed simulator is supplied.
+The original GPL license text is preserved; upstream retains its own license notices.

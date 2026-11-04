@@ -2,58 +2,73 @@
 
 ## Approved requirements and user decisions
 
-- Original M-VAVE FM-1 application inspired by aquatic mysteries, freshwater creatures,
-  fishing expeditions, and the investigative atmosphere of River Monsters.
-- The user is product owner, creative director, and final decision-maker.
-- Use established FM-1 firmware and simulator infrastructure, with genuine application
-  code and audio paths. Preserve practical physical-device compatibility.
-- Simulator-first development. No replacement emulator or disconnected browser demo.
-- Initial assignment is a technical audit and upstream simulator baseline, followed by
-  a foundation recommendation for approval. This supersedes the earlier broad request
-  to build an initial codebase.
-- Product direction: generative fish music maker with four species representing four
+- The user is product owner, creative director and final decision-maker. Research
+  does not authorize a roadmap. Use established FM-1 firmware/simulator infrastructure,
+  genuine application audio/control/display/storage paths, and practical hardware
+  compatibility. No replacement emulator or disconnected browser demo.
+- Generative fish music maker: four North American freshwater species represent four
   tracks/instruments, each with a distinct sound and fully editable FM synthesis.
-- User places a hook for a species. SEQ opens a per-track fishing minigame; catches
-  at specific intervals cause generative variation in that fish's musical theme.
-- Pixel art inspired by North American freshwater fish; exact species remain open.
-- Record fish sizes in a stats screen. Size units and its musical effect remain open.
-- Evaluate a fish-on sample / river-monster theme and propose useful additional
-  features and button mappings; evaluation is not implementation approval.
+- Pixel art; user places hooks; SEQ opens per-track fishing; catches at intervals
+  generate variation in each fish's musical theme. Record sizes in a stats screen.
+- User approved the recommended fm1-base foundation and six-operator FM direction.
+- Catch waiting times can range from zero seconds to minutes; implementation currently
+  supports 0-600 seconds per track.
+- User explicitly chose BOTH fishing modes: automatic catches and variable wait
+  followed by a timed player action.
+- User prefers a Jeremy Wade sample. Exact clip and integration behavior are not yet
+  specified and no audio asset has been supplied.
+- Simulator is the primary target. Publish only after separate approval.
 
-## Proposed, awaiting approval
+## Completed functionality
 
-- Adopt a pinned `charlesvestal/fm1-base` revision and its pinned `felucca-bsp`, with a
-  separate BLACKWATER C application and the existing host/browser simulator.
-- Exact species, musical roles, FM topology and edit scope, hook controls, catch timing,
-  minigame mechanics, variation rules, and detailed interface remain undecided.
-- Sample playback, effects, additional performance features, and detailed button
-  assignments require approval before implementation.
+- Audited the original license-only repository and four requested reference projects;
+  upstream template/Ravel desktop baselines recorded in `docs/TECHNICAL_AUDIT.md`.
+- Pinned fm1-base and felucca-bsp as submodules; original upstream sources unchanged.
+- Original BLACKWATER C application: four mono six-operator voices, eight routing
+  presets, editable forward routes and carrier levels, ratios/fixed frequencies,
+  per-operator feedback, velocity sensitivity and ADSR.
+- Hook placement/retrieval, transport, per-track automatic/timed fishing, missed bites,
+  zero-delay boundary safety, catch-driven motif changes, catch totals and sizes.
+- Functional FM/envelope/fishing/global/statistics screens and a first river view.
+- Versioned single-object session save/load using platform storage; error feedback.
+- Pinned host setup, reproducible tests, UBSan engine tests and actual application
+  simulator scenario. Real audio captured and selected screenshots inspected.
+- No imported Ravel/official application engines, replacement simulator, or sample DSP.
 
-## Completed
+## Provisional engineering defaults, not final product decisions
 
-- Audited the initially license-only checkout and four requested upstream repositories.
-- Built and exercised the upstream fm1-base template desktop simulator in a separate
-  research checkout; this is not a BLACKWATER implementation.
-- Recorded source references, reproducible baseline commands, constraints, and results
-  in `docs/TECHNICAL_AUDIT.md`.
+- 100 BPM, sixteen-step motifs with a minor-flavored scale, four contrasting starting
+  patches/registers; one voice per track. No DX7 compatibility claim.
+- Two-second manual landing window; waits rounded to sixteenth-note boundaries.
+- Size display in millimetres; generic 50-1000 mm synthetic catches until fish identities
+  and species-specific size distributions are chosen.
+- Functional first control layout documented in `docs/DEVELOPMENT.md`; generic pixel
+  silhouettes labeled FISH 1-4 while species selection remains pending.
+- Saved sessions restart stopped, with hooks retrieved; explicit SAVE rather than
+  autosave. Hardware flash-write interruption is not hidden.
 
-## Current tasks and pending decisions
+## Proposed, awaiting approval or assets
 
-- Obtain foundation approval before importing framework or template code.
-- Refine the approved fish-music direction into the first implementation scope;
-  resolve material fishing behavior and FM-editing choices with the user.
-- After approval: integrate the selected foundation, implement the approved scope,
-  validate host/browser/device builds, and document reproducible setup.
-- GitHub Pages publication is pending separate user approval and a working BLACKWATER
-  emulator; no deployment has been performed.
+- Species cast proposed to user: largemouth bass, brook trout, bluegill, channel catfish.
+  No answer yet; do not treat the proposal as the approved cast.
+- Jeremy Wade clip: needs the actual selected asset, provenance/distribution clearance,
+  and trigger behavior before a public bundle. No substitute voice has been added.
+- Track locking, catch keep/release/undo, additional scale controls, effects, LFO
+  modulation, and other performance features remain proposals. FX/LFO/ARP explicitly
+  report that they are unassigned rather than pretending to work.
+- Final minigame presentation, fishing animation, fish-size effects on music, exact
+  species patches/art and final UI behavior still require user direction/evaluation.
 
-## Known bugs and limitations
+## Current tasks and known limitations
 
-- No BLACKWATER application exists yet, so no application behavior is verified.
-- Browser toolchain installation encountered an HTTP 403 network-policy denial at
-  `storage.googleapis.com`; browser build and interaction testing remain unverified.
-- No physical hardware is attached or tested; desktop speed is not a device CPU budget.
-- The unmodified fm1-base platform suite has reproducible USB screen-mirroring
-  failures here (`mirror`, `mirror-viewer`); 56 named groups passed. Root cause is
-  unconfirmed. Firmware update-path and `.rfm1` checks were skipped.
-- No foundation has been adopted and no license change has been made.
+- Browser toolchain blocked: official Emscripten download at `storage.googleapis.com`
+  returns proxy HTTP 403. Domain addition saved in environment configuration draft;
+  current-instance access still denied on retry. Browser build/interaction unverified.
+- Desktop simulator tests pass. No device cross-build, linked memory report, device
+  CPU deadline validation, physical FM-1 test, or deployment has been performed.
+- Device packaging guarded pending a unique firmware identity and verified toolchain.
+- Upstream platform suite audit had reproducible `mirror`/`mirror-viewer` failures
+  (56 other named groups passed). They remain upstream issues of unconfirmed cause.
+- See `docs/DEVELOPMENT.md` for exact current controls, tests, behavior and limitations.
+- Next: resolve browser environment prerequisite, obtain species/asset decisions,
+  evaluate the first playable behavior with the user, and implement approved changes.

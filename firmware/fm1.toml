@@ -1,0 +1,14 @@
+name = "BLACKWATER"
+# Simulator-only placeholder. build.sh refuses device packaging until assigned.
+id_prefix = "FM-1_0"
+usb_manufacturer = "BLACKWATER"
+usb_product = "BLACKWATER FM-1"
+o2 = []
+words = "words.tsv"
+ble = false
+usb_audio_in = true
+usb_audio_out = true
+tagline = "Generative freshwater FM"
+repo = "https://github.com/MichaelAPerry/Blackwater"
+licence = "GPL-3.0-or-later"
+credits = "FM-1 platform: fm1-base and felucca-bsp; see THIRD_PARTY.md."
