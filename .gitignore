@@ -2,3 +2,4 @@
 /firmware/web/words/
 /build/
 __pycache__/
+/node_modules/

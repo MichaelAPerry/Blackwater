@@ -82,11 +82,17 @@
   authorization), physical FM-1 testing, device CPU deadline measurements beyond the
   emulator's ISR share.
 - Desktop simulator and engine tests still pass; five package guard tests pass.
+- "Fish on" clip player built and tested (synthetic test tone only). No clip is supplied; the trigger moment
+  (bite / automatic catch) is provisional; on/off and level controls are not built. See `docs/DEVELOPMENT.md`.
+- GitHub Pages workflow (`.github/workflows/pages.yml`) authorized by the user ("Go"): builds the package,
+  gates on native/Node-Wasm/Chromium checks, deploys on pushes to main. Not yet run on GitHub.
+- Expanded features: `docs/FEATURE_PROPOSAL.md` (proposal, awaiting decisions). Art prompts:
+  `docs/ART_PROMPTS.md`.
 - Upstream platform suite audit had reproducible `mirror`/`mirror-viewer` failures
   (56 other named groups passed). They remain upstream issues of unconfirmed cause.
 - See `docs/DEVELOPMENT.md` for exact current controls, tests, behavior and limitations.
-- Next: the user evaluates the package in the browser emulator; on authorization, a
-  GitHub Pages deployment; then the clip and musical/gameplay decisions.
+- Next: deploy (merge to main, Pages source = GitHub Actions), the user plays it, decisions on
+  `docs/FEATURE_PROPOSAL.md`, the art sheets and the clip.
 - MIKU-FM1 site-source audit identifies `joakimeriksson/fm1-emu` as its real-package
   emulator and Dinghy/Felucca as its firmware ancestry. fm1-emu's Rust/Wasm browser
   build is distinct from fm1-base's Emscripten application simulator. Retain the

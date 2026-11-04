@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "bw_engine.c"
+#include "bw_clip.c"
 static bw_engine bw;
+static bw_clip_state bw_fish_on;
 typedef struct
 {
     uint32_t magic, version, seed;
@@ -164,14 +166,24 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             }
         }
     }
-    uint32_t before = 0, after = 0;
+    uint32_t before[4];
+    uint8_t bit[4];
     for (unsigned k = 0; k < 4; k++)
-        before += bw.track[k].catches;
+    {
+        before[k] = bw.track[k].catches;
+        bit[k] = bw.bite[k];
+    }
     bw_render(&bw, lr, n, master_q12);
     for (unsigned k = 0; k < 4; k++)
-        after += bw.track[k].catches;
-    if (before != after)
-        bw_ui.dirty = 1;
+    {
+        if (bw.track[k].catches != before[k])
+            bw_ui.dirty = 1;
+        /* "fish on": a fish takes the hook. A timed bite as it starts; an automatic catch (no bite before
+         * it) as it lands. Landing a timed bite is the same fish, so it does not play again. */
+        if ((bw.bite[k] && !bit[k]) || (bw.track[k].catches != before[k] && !bit[k]))
+            bw_clip_trigger(&bw_fish_on);
+    }
+    bw_clip_mix(&bw_fish_on, lr, n, master_q12);
 }
 static void bw_knob(unsigned knob, int d)
 {
@@ -605,7 +617,9 @@ int app_expect(const char *what, int *got)
                   {"level", bw.track[k].op[bw_ui.op].level},
                   {"dirty", bw_ui.dirty},
                   {"valid", bw_track_valid(&bw.track[k])},
-                  {"operator", bw_ui.op}};
+                  {"operator", bw_ui.op},
+                  {"clip", bw_fish_on.active},
+                  {"clip_present", bw_clip_present()}};
     for (unsigned i = 0; i < sizeof checks / sizeof checks[0]; i++)
         if (strcmp(what, checks[i].name) == 0)
         {

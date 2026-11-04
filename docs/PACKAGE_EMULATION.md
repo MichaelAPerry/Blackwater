@@ -139,8 +139,11 @@ and `physical_hardware_tested` stay false). The front page with the embedded emu
 also loaded in Chromium without errors.
 
 The site is static and needs only a web server (`python3 -m http.server -d build/site`).
-**It is not deployed.** A GitHub Pages workflow (after MIKU-FM1's) is the natural next
-step, but only once the user authorizes publishing.
+`.github/workflows/pages.yml` (after MIKU-FM1's, authorized by the user) runs the same steps on GitHub:
+host tests, toolchain, SDK (a full gitee clone as MIKU/MPFM1 do, else `tools/get_sdk_files.sh`), device
+package, fm1-emu, then this builder with all its gates, and deploys `build/site`. It runs on pushes to `main`
+and needs Settings → Pages → Source: GitHub Actions. Its steps were run locally; the workflow itself has not
+run on GitHub yet.
 
 ## Fixes to the prepared tools
 

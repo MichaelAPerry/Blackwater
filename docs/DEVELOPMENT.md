@@ -83,6 +83,21 @@ Do not present these host screenshots as browser verification or a deployed demo
 - Flash writes remain outside the audio callback. The FM-1's flash-write audio pause
   still applies. A failed save leaves the session marked dirty and displays a message.
 
+## "Fish on" clip player
+
+A one-shot sample player (`firmware/bw_clip.c`) mixes a clip into the output when a fish takes the hook: as a
+timed bite starts, or as an automatic catch lands; landing a timed bite does not play it again, and a trigger
+while it plays is ignored. It follows MASTER, peaks at half the 24-bit range and is clamped with the synth. The
+clip comes from `firmware/assets/clip/fish_on.wav` or `$BW_CLIP_WAV` (`tools/make_clip.py`: 22,050 Hz mono IMA
+ADPCM in flash, at most 8 s; encoder from MPFM1's `tools/adpcm.py`, MIT). **No clip is supplied**: without one
+the build plays nothing. The trigger moment is a provisional choice; on/off and level controls are not built.
+
+Tests use a synthetic two-tone WAV generated at test time (never shipped): the C player matches the Python
+reference decoder exactly, ends by itself, ignores retriggers, is silent at MASTER 0 and clamps; the host
+scenario `tests/clip_simulator.txt` checks the triggers in the app. In the emulated device package
+(Node-Wasm, same inputs with and without the test clip) the outputs first differ at the catch (27.58 s) and are
+equal again 0.60 s later, the clip's length.
+
 ## Current controls
 
 | Control | Behavior |
