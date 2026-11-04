@@ -1,7 +1,7 @@
-# Expanded feature set — proposal (not approved)
+# Expanded feature set — approved 2026-11-04, implemented in version 2
 
-Written 2026-11-04 at the user's request ("we need an expanded feature set — thoughts?"). Nothing here is approved
-until the user says so; approved items move into `PROJECT.md`. Each item notes what the FM-1 and fm1-base already
+Written 2026-11-04 at the user's request; the user approved all of it the same day ("all"), plus effects, rare fish
+in each slot and FM manipulation on the keys (see `PROJECT.md`). What was built: `docs/MANUAL.md`. Each item notes what the FM-1 and fm1-base already
 give us, so the scope stays realistic for the hardware (one PI32 core at audio rate, 240×240 screen, 4 encoders +
 4 knobs, 14 buttons, 27 keys, USB/MIDI).
 

@@ -1,149 +1,64 @@
-# Development and current behavior
+# Development
 
-Use the existing checkout. Do not create another emulator or a worktree for normal
-cloud work. `platform/fm1-base` and its nested `bsp` are pinned submodules; update
-revisions deliberately, not as a side effect of a build.
+Use the existing checkout. Do not create another emulator or a worktree for normal cloud work. `platform/fm1-base`
+(and its nested `bsp`) and `platform/fm1-emu` are pinned submodules; update revisions deliberately. What the firmware
+does for a player: [MANUAL.md](MANUAL.md). The device build and the emulator/browser evidence:
+[PACKAGE_EMULATION.md](PACKAGE_EMULATION.md).
 
 ## Setup and tests
 
-Requires a C99 compiler, Git, Python 3 with venv/pip, and package/Git network access.
-From this repository root:
+Requires a C99 compiler, Git, Python 3 with venv/pip. From the repository root:
 
 ```sh
 ./tools/setup.sh
 . build/venv/bin/activate
 ./tests/run_tests.sh
+python3 tests/package_metadata_test.py
 ```
 
-Setup initializes pinned submodules, installs Pillow 13.0.0 into `build/venv`, and
-builds `firmware/build/host/blackwater_host` through fm1-base. Tests compile the
-original DSP/generation engine with UBSan, then execute the same application's UI,
-controls, render callback and storage through fm1-base's host simulator. They do not
-substitute an independent sound generator. Outputs are under ignored `build/tests`:
-PNG screens and actual rendered `audition.wav` / `fishing.wav`.
+`tests/run_tests.sh` runs, all under UBSan where it is C:
 
-`./build.sh --host` builds the desktop simulator; plain `./build.sh` builds the device
-package (see `docs/PACKAGE_EMULATION.md`). The upstream host takes a scenario and an
-**existing** output directory:
+- `tests/engine_test.c`: the engine alone — every factory patch sounds and releases to silence; the scale mapping;
+  all four fish play on their MIDI channels with the clock out at 24 a beat; silence without a line in the water;
+  automatic catches across all species with sizes and weights in range and rare fish (each playing the clip hook);
+  themes change on catches, release and home restore them; personal bests move the key a fourth; the fight
+  (patient reeling lands, cranking snaps, idling throws the hook); missed bites; live keys, a macro, ARP on and
+  latch; the LFO; the effects' tail; external MIDI clock; everything at full stays inside 24 bits; determinism.
+- `tests/art_test.py`: the art importer on a synthetic blurred sheet (never shipped): every game pixel exact.
+- `tests/clip_test.c` and `tests/clip_simulator.txt`: the clip player against the reference decoder, and the app
+  playing it for a rare fish (a synthetic tone, never shipped).
+- `tests/simulator.txt`: the app on fm1-base's host simulator — editing, audition, the patch library, effects,
+  scale, LFO, ARP, a black-key macro, automatic catches, the theme page and release, the catch log, a timed fight,
+  save and reboot (song, patch, catch log restored), slots, units, a failed save, and the help page. Screens and
+  rendered WAVs land in `build/tests`.
 
-```sh
-mkdir -p build/manual
-firmware/build/host/blackwater_host tests/simulator.txt build/manual
-```
+## Source map
 
-## Browser target
-
-The existing fm1-base browser emulator compiles `firmware/app.c` through the same
-host platform and runs its real DSP in a Wasm AudioWorklet. With Emscripten activated:
-
-```sh
-./build.sh --web
-```
-
-Output is `firmware/build/emu`. No replacement HTML/audio implementation is supplied.
-This target is **not yet verified**: installation of official Emscripten 4.0.19 failed
-at `storage.googleapis.com` with proxy HTTP 403. An additive environment network
-configuration draft was saved, but did not change the live instance's access.
-After the environment settings are applied, finish installing/activating Emscripten,
-compile the target, then test its controls, display, audio and persistence in a browser.
-Do not present these host screenshots as browser verification or a deployed demo.
-
-## First application implementation
-
-- Four tracks, one six-operator FM voice per track. Keys and incoming MIDI channels
-  1-4 audition voices while stopped. Playing transport reserves voices for generation.
-- Eight routing presets, individually editable operator ratio, level, feedback,
-  fixed/ratio mode, fixed frequency, velocity sensitivity and ADSR. Custom forward
-  modulation routes and carrier output levels are editable too. Self-feedback is
-  per operator; arbitrary cyclic cross-operator routing is not supported.
-- This is original FM synthesis, **not DX7 patch compatibility or the DX7's 32
-  algorithms**. Sound parameters take effect fully on the next note; output/routing
-  and some envelope settings can affect an already sounding voice.
-- Initial sixteen-step patterns are constructed by fixed arithmetic formulas. Catches
-  randomly mutate their pitches and gates using a repeatable PRNG. This is a basic
-  generative prototype, not species-specific composition or developed musical phrasing. Current provisional defaults: a minor-flavored scale, 100 BPM, four
-  contrasting patches/registers. These are initial implementation values, not an
-  approved final musical identity or species assignment.
-- Per-track hook placement/removal; automatic or timed catches. Editable wait bounds
-  are 0-600 seconds, inclusive. Encoders use one-second increments. Equal bounds give
-  a fixed wait; different bounds choose a random integer-second wait after each catch
-  or missed bite. Timing-setting changes restart that track's wait.
-- Catches/bites begin on sixteenth-note boundaries. Zero wait means the next boundary,
-  and at most one encounter per boundary. Transport stop pauses fishing time.
-- Timed mode currently offers a two-second landing window; REC lands a bite. A miss
-  does not mutate the theme or count as a catch. The window is a provisional tuning
-  value for user evaluation, not a final minigame design.
-- Variation changes 1-16 motif steps per catch; selection may revisit a step. Changes
-  affect pitches/rhythm, preserving track identity through its editable patch/register.
-- Catch totals, last size and personal best per track. Current sizes are synthetic
-  50-1000 mm values, awaiting species-specific ranges and preferred units.
-- SAVE writes parameters, themes, RNG state and catch records in one versioned platform
-  storage object. Paused/running state, pending bites and placed hooks are not resumed
-  on load: startup is stopped with hooks retrieved. No autosave or slot browser yet.
-- Flash writes remain outside the audio callback. The FM-1's flash-write audio pause
-  still applies. A failed save leaves the session marked dirty and displays a message.
-
-## "Fish on" clip player
-
-A one-shot sample player (`firmware/bw_clip.c`) mixes a clip into the output when a fish takes the hook: as a
-timed bite starts, or as an automatic catch lands; landing a timed bite does not play it again, and a trigger
-while it plays is ignored. It follows MASTER, peaks at half the 24-bit range and is clamped with the synth. The
-clip comes from `firmware/assets/clip/fish_on.wav` or `$BW_CLIP_WAV` (`tools/make_clip.py`: 22,050 Hz mono IMA
-ADPCM in flash, at most 8 s; encoder from MPFM1's `tools/adpcm.py`, MIT). **No clip is supplied**: without one
-the build plays nothing. The trigger moment is a provisional choice; on/off and level controls are not built.
-
-Tests use a synthetic two-tone WAV generated at test time (never shipped): the C player matches the Python
-reference decoder exactly, ends by itself, ignores retriggers, is silent at MASTER 0 and clamps; the host
-scenario `tests/clip_simulator.txt` checks the triggers in the app. In the emulated device package
-(Node-Wasm, same inputs with and without the test clip) the outputs first differ at the catch (27.58 s) and are
-equal again 0.60 s later, the clip's length.
-
-## Current controls
-
-| Control | Behavior |
+| Path | What |
 | --- | --- |
-| ALGORITHM encoder | Select track 1-4 on every screen |
-| HOME | River overview; REC places/retrieves selected track's hook |
-| PLAY | Start/stop all generative tracks; start stopped, cast a hook to hear it |
-| REC | Cast/retrieve selected hook; while a timed bite is active, land it |
-| SEQ | Fishing screen: K1 minimum wait, K2 maximum wait, K3 AUTO/TIMED, K4 variation |
-| EDIT | FM editor; SELECT chooses operator; PRESETS chooses one of three editor pages |
-| EDIT page 1 | K1 ratio in hundredths (5-unit detents), K2 level, K3 feedback, K4 routing preset |
-| EDIT page 2 | K1 fixed mode, K2 fixed Hz (10 Hz detents), K3 velocity sensitivity, K4 operator output |
-| EDIT page 3 | K1 source operator, K2 lower-numbered destination, K3 modulation amount, K4 source output |
-| ENV | SELECT chooses operator; K1 attack, K2 decay, K3 sustain, K4 release |
-| GLO | K1 tempo 30-240, K2 selected track root MIDI note, K3 track volume |
-| SEL button | Catch statistics for all four tracks |
-| SELECT encoder outside EDIT/ENV | Navigate the six screens |
-| HOME knobs | K1 selected track volume, K2 root MIDI note |
-| OCT-/OCT+ | Audition keyboard octave, while stopped |
-| SAVE | Save session and catch log; star indicates unsaved changes |
-| FX / LFO / ARP | Explicitly unassigned pending approved features |
+| `firmware/bw_engine.h`, `.c` | the engine: voices (8, six-operator FM), sequencer (96 PPQN, per-fish step rates, swing, chords), themes and their development, fishing, the fight, LFOs, FM macros, ARP, live keys, MIDI out and clock |
+| `firmware/bw_species.c` | the eight fish (sizes, weights, depth and bait), the sixteen factory patches |
+| `firmware/bw_fx.c` | the effects bus: chorus, tempo delay, reverb, master tone and width (BLACKWATER's own code) |
+| `firmware/bw_clip.c` | the "fish on" clip player |
+| `firmware/app.c`, `app.h` | controls, screens, saves (four slots, patches, catch log, settings), backup hooks |
+| `firmware/fm1.toml` | build settings: identity `FM-1_77`, generators, backup |
+| `tools/make_clip.py`, `tools/adpcm.py` | WAV → ADPCM header (encoder from MPFM1, MIT) |
+| `tools/import_art.py` | art sheets → sprite header |
+| `tools/get_sdk_files.sh` | the three hash-checked AC79 SDK files |
+| `tools/build_emulator.sh`, `emulator_smoke.py`, `emulator_wasm_smoke.mjs`, `browser_smoke.mjs`, `build_simulator_site.py`, `package_metadata.mjs` | fm1-emu builds, package checks, the gated site |
 
-Choosing a routing preset replaces custom routes/output assignments; it does not
-replace operator envelopes or frequency parameters. The current editor is functional
-but provisional. Generic original pixel silhouettes now carry the approved Bluegill, Largemouth Bass,
-Brown Trout and Catfish labels. Species-specific artwork has not been implemented.
+## Design notes
 
-## Validation and limits
+- The engine is float (the AC79's single-precision FPU), no doubles; fastmath's exp2 is only called with
+  non-negative exponents (`bw_exp2`), as it shifts a negative one.
+- Per-operator constants are refreshed every 32 frames, not per sample; operators at level 0 never start. With all
+  four fish and the effects, the firmware reports about 56% audio load at the chip's 240 MHz in fm1-emu.
+- The effects' lines (about 150 KB) are in the pool; a stage whose input has been silent past its tail sleeps.
+- The fight runs in the main loop (it reads the encoders) under the platform lock; catches from AUTO fishing happen
+  in the render, on sixteenth-note boundaries.
+- Saved objects are versioned (format 2). Object numbers 0 and 1 are kept from the first build.
 
-The host scenario passes: 16,724 simulated milliseconds, real audio capture, operator
-editing, automatic catches, timed landing and misses, stats/envelope page navigation,
-save/reboot and failed-save handling. Engine tests pass with undefined-behavior
-sanitization: all eight presets emit audio, release reaches silence, operator editing
-changes samples, four-voice output stays in the 24-bit range, zero/600-second timers,
-clock rollover, track isolation, and deterministic generation. Selected simulator
-screenshots were visually inspected.
+## Not done
 
-Engine state is 1,580 bytes; each track record is 192 bytes. The sine/note tables add
-about 4.6 KiB; the 48-row RGB565 canvas is 23,040 bytes. These are source/host-derived
-figures. The linked device build reports an 83,816-byte app image, RAM .data+.bss
-31,028 of 98,304 bytes and a 23,304-byte pool (see `docs/PACKAGE_EMULATION.md`, which
-also records the native, Node-Wasm and automated Chromium runs of that package). No
-physical FM-1 verification, DSP deadline measurement on hardware, or deployment is
-claimed, and nobody has yet played the browser build by hand.
-
-Known upstream USB-mirroring failures from the audit remain unresolved; upstream
-sources are unchanged. Species-specific art/sounds, species size distributions, the
-Jeremy Wade audio asset, effects/modulation features, and polished game behavior
-remain outstanding. No sample-player implementation is claimed.
+Physical FM-1 testing; a person playing and listening; the art (placeholders are drawn until the sheets arrive);
+the clip itself; key velocity/pressure, Bluetooth MIDI and the second core are not used.

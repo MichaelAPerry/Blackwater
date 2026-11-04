@@ -30,7 +30,7 @@ const server = createServer((req, res) => {
     res.end(readFileSync(file));
 }).listen(0, '127.0.0.1');
 await new Promise(r => server.once('listening', r));
-const url = `http://127.0.0.1:${server.address().port}/emulator/?fw=blackwater`;
+const url = `http://127.0.0.1:${server.address().port}/emulator/?fw=blackwater&mhz=240`; // the chip's clock
 
 const tap = () => {
     const connect = AudioNode.prototype.connect;
@@ -96,6 +96,10 @@ try {
     await boot();
     const status = await page.locator('#status').textContent().catch(() => '');
     log('booted', {status});
+    await press('7');
+    await press('7');
+    const emptyLog = await shot('0-log-empty');   // the catch log before any fish
+    await press('7');
     const river = await shot('1-river');
     const idle = await level(1000);
     log('stopped level', {rms: idle});
@@ -114,11 +118,13 @@ try {
 
     // wait for automatic catches (default waits 8-32 s)
     await page.waitForTimeout(40000);
-    await press('2');            // SEL: catch statistics
+    await press('7');            // HOME, HOME: the catch log
+    await press('7');
     const stats = await shot('4-stats-before-save');
     assert.notDeepEqual(stats, fishing, 'SEL did not change the display');
     log('statistics shown');
 
+    log('after a minute', {status: await page.locator('#status').textContent().catch(() => '')});
     await press(' ');            // stop, so the saved state is quiet
     await press('8', 1500);      // SAVE (the firmware's own storage object)
     await shot('5-after-save');
@@ -126,25 +132,20 @@ try {
     await page.waitForTimeout(1500);
     log('saved');
 
+    await press('6');            // GLO: the audio's own load and xruns, after a minute of playing
+    await shot('5b-global-load');
     await boot();                // reload: the same browser profile, a fresh firmware boot
-    await press('2');
+    await press('7');
+    await press('7');
     const restored = await shot('6-stats-after-reload');
     log('reloaded');
 
-    // the same screen in a browser profile that never saved: a fresh session's statistics
-    const other = await playwright.chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'bw-fresh-')), {
-        args: ['--autoplay-policy=no-user-gesture-required'], viewport: {width: 1280, height: 1000}});
-    const freshPage = other.pages()[0] || await other.newPage();
-    await freshPage.addInitScript(tap);
-    await startPage(freshPage);
-    await freshPage.keyboard.press('2');
-    await freshPage.waitForTimeout(400);
-    const fresh = await lcdShot(freshPage, '7-stats-fresh-profile');
+    assert.notDeepEqual(restored, emptyLog, 'reloaded catch log is empty: the save did not persist');
+    log('restored catch log differs from the empty one');
     // encoders, as the page's keys turn them (fm1-emu: arrows left/right SELECT, up/down PRESETS, , . ALGORITHM)
-    const turn = async (key, name) => { await freshPage.keyboard.press(key); await freshPage.waitForTimeout(400); return lcdShot(freshPage, name); };
-    await freshPage.keyboard.press('7');                 // HOME: the river
-    await freshPage.waitForTimeout(400);
-    const home = await lcdShot(freshPage, '8-river');
+    const turn = async (key, name) => { await page.keyboard.press(key); await page.waitForTimeout(400); return lcdShot(page, name); };
+    await press('7');                                    // HOME: the river
+    const home = await lcdShot(page, '8-river');
     const track2 = await turn('.', '9-algorithm-track2');
     assert.notDeepEqual(track2, home, 'ALGORITHM did not select another track');
     const presetsOutsideEdit = await turn('ArrowUp', '10-presets-outside-edit');
@@ -157,7 +158,7 @@ try {
     log('restored statistics differ from a fresh profile');
     result.errors = errors;
 } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
     server.close();
 }
 writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2) + '\n');

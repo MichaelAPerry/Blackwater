@@ -7,7 +7,7 @@
 
 No WAV: an empty clip (BW_CLIP_FRAMES 0); the firmware then plays nothing. This tool never makes a voice
 or a stand-in recording. Input: PCM 16-bit WAV, mono or stereo (mixed down), any rate (resampled to
-22,050 Hz), at most BW_CLIP_MAX_S seconds. Levels are kept as recorded, only clipped at full scale.
+22,050 Hz), at most 12 seconds. Levels are kept as recorded, only clipped at full scale.
 """
 import argparse
 import math
@@ -22,7 +22,7 @@ sys.path.insert(0, str(HERE))
 import adpcm  # noqa: E402
 
 RATE = 22050
-MAX_S = 8
+MAX_S = 12
 DEFAULT = HERE.parent / 'firmware/assets/clip/fish_on.wav'
 
 

@@ -73,12 +73,15 @@ a{color:#93d6b3}iframe{width:100%;height:850px;border:1px solid #34534b}code{ove
 <p>This is the actual FM-1 firmware package running in the existing fm1-emu emulator.
 It passed native, Node-Wasm and automated Chromium checks before this page was built.
 It has not been tested on a physical FM-1.</p>
-<p>Press Start, then REC (R key) to cast a hook and PLAY (Space) to start. ALGORITHM (, .) selects a track;
-SEQ (0) opens fishing, EDIT (5) opens FM editing, ENV (3) opens envelopes, SEL (2) shows catches and
-SAVE (8) stores the session in this browser.</p>
-<p>Generative behavior is currently basic pitch/rhythm mutation. Artwork, musical identities and the Jeremy Wade clip remain unfinished.</p>
-<iframe src="emulator/?fw=blackwater&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
-<p><a href="emulator/?fw=blackwater">Open the full emulator</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
+<p>Press Start, then R (REC) to cast a line and Space (PLAY): a fish is heard while its line is in the water.
+, and . choose the fish (ALGORITHM); the arrow keys turn SELECT (pages, and reeling in a fight) and PRESETS.
+The piano keys play the chosen fish in the scale; the upper (black) keys bend its FM while held.
+7 HOME river / catch log, 0 SEQ fishing / theme, 2 SCALE, 5 EDIT, 3 ENV, 4 LFO, 1 FX, 9 ARP, 6 GLOBAL, 8 SAVE.
+K1-K4 are the panel's knobs (drag them).</p>
+<p>The emulator runs the FM-1's chip at its own 240 MHz: a slower computer may stutter (the page's clock menu).</p>
+<p>Pixel art is placeholder until the art sheets arrive; the fish-on clip plays only in builds that include one.</p>
+<iframe src="emulator/?fw=blackwater&amp;mhz=240&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
+<p><a href="emulator/?fw=blackwater&amp;mhz=240">Open the full emulator</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
  · <a href="build.json">Build and validation details</a></p>
 <p>Package SHA-256: <code>PACKAGE_HASH</code></p>
 <footer>Firmware platform: <a href="https://github.com/charlesvestal/fm1-base">fm1-base</a> and

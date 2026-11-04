@@ -1,62 +1,155 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-#include "bw_engine.c"
+/* BLACKWATER's application: controls, screens, saves, the "fish on" clip. The engine is bw_engine.c. */
+#include "bw_engine.h"
+#include "fastmath.h"
 #include "bw_clip.c"
+#include "bw_art.h"
 static bw_engine bw;
 static bw_clip_state bw_fish_on;
+
+/* ------------------------------------------------------------------ saved objects */
+#define BW_MAGIC 0x42573032u /* "BW02" */
+#define BW_VERSION 2u
 typedef struct
 {
     uint32_t magic, version, seed;
-    uint16_t tempo;
+    bw_song song;
     bw_track track[4];
 } bw_saved;
-typedef char bw_save_must_fit[(sizeof(bw_saved) <= PLAT_STORE_MAX) ? 1 : -1];
-static struct
+typedef struct
 {
-    uint32_t buttons, keys, last_draw, message_until;
-    uint8_t track, page, op, edit_page, route_source, route_dest;
-    int8_t octave;
-    uint8_t dirty, draw;
-    char message[32];
-    int16_t preview[4];
-} bw_ui;
+    uint32_t magic, version;
+    bw_patch user[4][4];
+} bw_saved_patches;
+typedef struct
+{
+    uint32_t magic, version;
+    bw_log log;
+} bw_saved_log;
+typedef struct
+{
+    uint32_t magic, version;
+    uint8_t units, clip_on, clip_level, autosave, slot, midi_out, pad[2];
+} bw_prefs;
+typedef char bw_save_fits[(sizeof(bw_saved) <= PLAT_STORE_MAX) ? 1 : -1];
+typedef char bw_patches_fit[(sizeof(bw_saved_patches) <= PLAT_STORE_MAX) ? 1 : -1];
+static const uint32_t bw_slot_obj[4] = {OBJ_SESSION, OBJ_SLOT2, OBJ_SLOT3, OBJ_SLOT4};
+static bw_saved_patches bw_user;
+static bw_prefs bw_pref;
+
+/* ------------------------------------------------------------------ pages */
 enum
 {
     BW_RIVER,
     BW_FISHING,
+    BW_THEME,
+    BW_LOG,
+    BW_SCALE,
     BW_EDIT,
     BW_ENV,
+    BW_LFO,
+    BW_FX,
+    BW_ARP,
     BW_GLOBAL,
-    BW_STATS
+    BW_HELP,
+    BW_NPAGES
 };
-static const char *const bw_pages[] = {"RIVER",    "FISHING", "FM EDIT",
-                                       "ENVELOPE", "GLOBAL",  "CATCH LOG"};
-static const char *const bw_names[] = {"BLUEGILL", "LARGEMOUTH BASS", "BROWN TROUT", "CATFISH"};
+static const char *const bw_pages[BW_NPAGES] = {"RIVER", "FISHING", "THEME", "CATCH LOG", "SCALE", "FM EDIT",
+                                                "ENVELOPE", "LFO", "EFFECTS", "ARP", "GLOBAL", "HELP"};
+static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 2, 1, 4, 1, 1, 4, 1, 3, 2};
+static struct
+{
+    uint32_t buttons, keys, last_draw, message_until, popup_until, last_input, event_seq, fight_ms;
+    uint8_t track, page, sub[BW_NPAGES], op, route_source, route_dest, patch_pick, slot_pick;
+    uint8_t dirty, draw, held;
+    int8_t preview[4];
+    char message[32];
+    bw_event popup;
+} bw_ui;
 static uint16_t bw_color(unsigned k)
 {
-    static const uint16_t c[] = {RGB(97, 173, 118), RGB(226, 150, 94), RGB(87, 164, 203),
-                                 RGB(174, 150, 193)};
+    static const uint16_t c[] = {RGB(110, 200, 140), RGB(240, 160, 90), RGB(100, 180, 235), RGB(190, 160, 220)};
     return c[k % 4];
 }
-static void bw_text_number(char *p, int v)
+/* BLACKWATER's own palette (docs/ART_PROMPTS.md): river water, reeds, lantern light, the bobber, bone */
+#define C_BG RGB(6, 14, 12)       /* deep water */
+#define C_PANEL RGB(14, 30, 27)   /* shallows: the selected row, panels */
+#define C_BAR RGB(30, 50, 44)     /* slack line */
+#define C_YEL RGB(232, 170, 70)   /* lantern amber: global values, the time */
+#define C_PINK RGB(222, 78, 58)   /* bobber red: alerts, recording */
+#define C_GOLD RGB(240, 204, 96)  /* trophy: rare fish */
+#define C_TXT RGB(222, 214, 194)  /* bone white */
+#define C_MUTE RGB(116, 136, 114) /* reed green: labels */
+
+/* ------------------------------------------------------------------ text */
+static void bw_cat(char *out, unsigned n, const char *s)
 {
-    char d[12];
-    unsigned n = 0;
-    uint32_t x = v < 0 ? 0u - (uint32_t)v : (uint32_t)v;
-    if (v < 0)
-        *p++ = '-';
+    unsigned i = 0;
+    while (out[i] && i + 1 < n)
+        i++;
+    while (*s && i + 1 < n)
+        out[i++] = *s++;
+    out[i] = 0;
+}
+static void bw_num(char *p, int v)
+{
+    char t[12];
+    unsigned n = 0, neg = v < 0;
+    unsigned u = neg ? (unsigned)(-v) : (unsigned)v;
     do
     {
-        d[n++] = (char)('0' + x % 10);
-        x /= 10;
-    } while (x);
+        t[n++] = (char)('0' + u % 10);
+        u /= 10;
+    } while (u && n < sizeof t);
+    if (neg)
+        *p++ = '-';
     while (n)
-        *p++ = d[--n];
+        *p++ = t[--n];
     *p = 0;
+}
+static void bw_dec1(char *p, uint32_t tenths)
+{
+    bw_num(p, (int)(tenths / 10));
+    char d[3] = {'.', (char)('0' + tenths % 10), 0};
+    bw_cat(p, 12, d);
+}
+static void bw_length_text(char *out, uint32_t mm)
+{
+    out[0] = 0;
+    if (bw_pref.units)
+    {
+        bw_dec1(out, (mm * 100u + 127u) / 254u); /* tenths of an inch */
+        bw_cat(out, 16, " IN");
+    }
+    else
+    {
+        bw_dec1(out, mm); /* millimetres are tenths of a centimetre */
+        bw_cat(out, 16, " CM");
+    }
+}
+static void bw_weight_text(char *out, uint32_t g)
+{
+    out[0] = 0;
+    if (bw_pref.units)
+    {
+        bw_dec1(out, (g * 10u + 226u) / 454u);
+        bw_cat(out, 16, " LB");
+    }
+    else if (g < 1000)
+    {
+        bw_num(out, (int)g);
+        bw_cat(out, 16, " G");
+    }
+    else
+    {
+        bw_dec1(out, (g + 50u) / 100u);
+        bw_cat(out, 16, " KG");
+    }
 }
 static void bw_text_copy(char *out, const char *s, unsigned n)
 {
     unsigned i = 0;
-    while (s && s[i] && i + 1 < n)
+    while (s[i] && i + 1 < n)
     {
         out[i] = s[i];
         i++;
@@ -68,80 +161,172 @@ void app_say(const char *a, const char *b)
     bw_text_copy(bw_ui.message, a, sizeof bw_ui.message);
     if (b && *b)
     {
-        unsigned n = 0;
-        while (bw_ui.message[n])
-            n++;
-        if (n + 2 < sizeof bw_ui.message)
-        {
-            bw_ui.message[n++] = ' ';
-            bw_text_copy(bw_ui.message + n, b, sizeof bw_ui.message - n);
-        }
+        bw_cat(bw_ui.message, sizeof bw_ui.message, " ");
+        bw_cat(bw_ui.message, sizeof bw_ui.message, b);
     }
     bw_ui.draw = 1;
-    bw_ui.message_until = plat_ms() + 1500u;
+    bw_ui.message_until = plat_ms() + 1800u;
     if (ann_on())
         ann_say(bw_ui.message, 0, ANN_NOW);
 }
+
+/* ------------------------------------------------------------------ hooks the engine calls */
+void bw_midi_send(uint32_t pkt)
+{
+    plat_midi_send(pkt, TO_USB | TO_BLE);
+}
+uint32_t bw_midi_room(void)
+{
+    return plat_midi_out_room(TO_USB);
+}
+static uint32_t bw_clip_plays;
+void bw_on_rare(unsigned k)
+{
+    (void)k;
+    if (bw_pref.clip_on && bw_clip_present() && !bw_fish_on.active)
+        bw_clip_plays++;
+    if (bw_pref.clip_on)
+        bw_clip_trigger(&bw_fish_on);
+}
+
+/* ------------------------------------------------------------------ storage */
+static void bw_prefs_default(void)
+{
+    memset(&bw_pref, 0, sizeof bw_pref);
+    bw_pref.magic = BW_MAGIC;
+    bw_pref.version = BW_VERSION;
+    bw_pref.clip_on = 1;
+    bw_pref.clip_level = 80;
+    bw_pref.autosave = 1;
+    bw_pref.midi_out = 1;
+}
 static int bw_saved_valid(const bw_saved *s)
 {
-    if (s->magic != 0x42573031u || s->version != 1 || s->tempo < 30 || s->tempo > 240 || !s->seed)
+    if (s->magic != BW_MAGIC || s->version != BW_VERSION || !s->seed || !bw_song_valid(&s->song))
         return 0;
     for (unsigned k = 0; k < 4; k++)
         if (!bw_track_valid(&s->track[k]))
             return 0;
     return 1;
 }
-static void bw_load(void)
+static int bw_load_slot(unsigned slot)
 {
-    bw_saved s;
-    if (plat_store_load(OBJ_SESSION, &s, sizeof s) == sizeof s && bw_saved_valid(&s))
+    static bw_saved s;
+    if (plat_store_load(bw_slot_obj[slot % 4], &s, sizeof s) == (int)sizeof s && bw_saved_valid(&s))
     {
+        uint32_t lock = plat_lock();
+        bw_all_notes_off(&bw);
+        bw.song = s.song;
         for (unsigned k = 0; k < 4; k++)
+        {
             bw.track[k] = s.track[k];
-        bw.tempo = s.tempo;
+            bw.step[k] = 0;
+            bw.tcount[k] = 0;
+        }
         bw.rng = s.seed;
+        plat_unlock(lock);
+        return 1;
     }
+    return 0;
 }
-void app_init(void)
+static void bw_load_all(void)
 {
-    bw_init(&bw);
-    bw_load();
-    /* Simulated reboots call app_init again in the same process. Reset all UI state. */
-    unsigned char *p = (unsigned char *)&bw_ui;
-    for (unsigned i = 0; i < sizeof bw_ui; i++)
-        p[i] = 0;
+    static bw_saved_log l;
+    if (plat_store_load(OBJ_PREFS, &bw_pref, sizeof bw_pref) != (int)sizeof bw_pref || bw_pref.magic != BW_MAGIC ||
+        bw_pref.version != BW_VERSION || bw_pref.slot > 3 || bw_pref.units > 1 || bw_pref.clip_on > 1 ||
+        bw_pref.clip_level > 100 || bw_pref.autosave > 1 || bw_pref.midi_out > 1)
+        bw_prefs_default();
+    if (plat_store_load(OBJ_PATCHES, &bw_user, sizeof bw_user) != (int)sizeof bw_user || bw_user.magic != BW_MAGIC)
+    {
+        memset(&bw_user, 0, sizeof bw_user);
+        bw_user.magic = BW_MAGIC;
+        bw_user.version = BW_VERSION;
+        for (unsigned k = 0; k < 4; k++)
+            for (unsigned i = 0; i < 4; i++)
+                bw_patch_factory(&bw_user.user[k][i], k, i);
+    }
+    if (plat_store_load(OBJ_LOG, &l, sizeof l) == (int)sizeof l && l.magic == BW_MAGIC && l.version == BW_VERSION)
+        bw.log = l.log;
+    bw_load_slot(bw_pref.slot);
+    bw.midi_out = bw_pref.midi_out;
+}
+static int bw_save_all(unsigned slot)
+{
+    static bw_saved s;
+    static bw_saved_log l;
+    memset(&s, 0, sizeof s);
+    uint32_t lock = plat_lock();
+    s.magic = BW_MAGIC;
+    s.version = BW_VERSION;
+    s.seed = bw.rng ? bw.rng : 1u;
+    s.song = bw.song;
     for (unsigned k = 0; k < 4; k++)
-        bw_ui.preview[k] = -1;
-    bw_ui.draw = 1;
+        s.track[k] = bw.track[k];
+    l.magic = BW_MAGIC;
+    l.version = BW_VERSION;
+    l.log = bw.log;
+    plat_unlock(lock);
+    bw_pref.slot = (uint8_t)(slot % 4);
+    int r = plat_store_save(bw_slot_obj[slot % 4], &s, sizeof s);
+    r |= plat_store_save(OBJ_LOG, &l, sizeof l);
+    r |= plat_store_save(OBJ_PREFS, &bw_pref, sizeof bw_pref);
+    if (r == 0)
+        bw_ui.dirty = 0;
+    return r;
 }
 static void bw_save(void)
 {
-    bw_saved s;
-    memset(&s, 0, sizeof s);
-    uint32_t lock = plat_lock();
-    s.magic = 0x42573031u;
-    s.version = 1;
-    s.tempo = bw.tempo;
-    s.seed = bw.rng;
-    for (unsigned k = 0; k < 4; k++)
-        s.track[k] = bw.track[k];
-    plat_unlock(lock);
-    if (plat_store_save(OBJ_SESSION, &s, sizeof s) == 0)
-    {
-        lock = plat_lock();
-        bw_ui.dirty = memcmp(bw.track, s.track, sizeof s.track) != 0 || bw.tempo != s.tempo ||
-                      bw.rng != s.seed;
-        plat_unlock(lock);
-        app_say("SAVED", "");
-    }
+    char t[16] = "SLOT ";
+    bw_num(t + 5, bw_pref.slot + 1);
+    if (bw_save_all(bw_pref.slot) == 0)
+        app_say("SAVED", t);
     else
         app_say("SAVE FAILED", "");
+}
+int app_backup_playing(void)
+{
+    return bw.playing;
+}
+void app_backup_flush(void)
+{
+    if (bw_ui.dirty)
+        bw_save_all(bw_pref.slot);
+}
+void app_backup_hold(int on)
+{
+    bw_ui.held = (uint8_t)(on != 0);
+}
+void app_backup_restored(void)
+{
+    uint32_t lock = plat_lock();
+    bw_init(&bw);
+    plat_unlock(lock);
+    bw_load_all();
+    bw_ui.dirty = 0;
+    bw_ui.draw = 1;
+}
+
+/* ------------------------------------------------------------------ init and render */
+void app_init(void)
+{
+    bw_init(&bw);
+    bw_load_all();
+    /* simulated reboots call app_init again in the same process: all UI state starts over */
+    memset(&bw_ui, 0, sizeof bw_ui);
+    for (unsigned k = 0; k < 4; k++)
+        bw_ui.preview[k] = -1;
+    memset(&bw_fish_on, 0, sizeof bw_fish_on);
+    bw_clip_plays = 0;
+    bw_ui.route_source = 1;
+    bw_ui.draw = 1;
+    bw_ui.event_seq = bw.event.seq;
 }
 void app_panic(void)
 {
     bw_transport(&bw, 0);
-    for (unsigned k = 0; k < 4; k++)
-        bw.voice[k].active = 0;
+    for (unsigned i = 0; i < BW_VOICES; i++)
+        bw.voice[i].active = 0;
+    bw_fish_on.active = 0;
 }
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
@@ -151,433 +336,1075 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     {
         unsigned status = (pkt >> 8) & 255, note = (pkt >> 16) & 127, velocity = (pkt >> 24) & 127;
         unsigned k = status & 15;
-        if (k < 4 && !bw.playing)
+        if (status >= 0xF8)
         {
-            if ((status & 240) == 144 && velocity)
-            {
-                bw_note_on(&bw, k, note, velocity);
-                bw_ui.preview[k] = (int16_t)note;
-            }
-            else if (((status & 240) == 128 || ((status & 240) == 144 && !velocity)) &&
-                     bw_ui.preview[k] == (int)note)
-            {
-                bw_note_off(&bw, k);
-                bw_ui.preview[k] = -1;
-            }
+            bw_midi_clock(&bw, status);
+            continue;
         }
+        if (k < 4 && (status & 240) == 144 && velocity)
+            bw_live_note(&bw, k, note, 1, velocity);
+        else if (k < 4 && ((status & 240) == 128 || (status & 240) == 144))
+            bw_live_note(&bw, k, note, 0, 0);
     }
-    uint32_t before[4];
-    uint8_t bit[4];
-    for (unsigned k = 0; k < 4; k++)
-    {
-        before[k] = bw.track[k].catches;
-        bit[k] = bw.bite[k];
-    }
+    uint32_t seq = bw.event.seq;
     bw_render(&bw, lr, n, master_q12);
-    for (unsigned k = 0; k < 4; k++)
-    {
-        if (bw.track[k].catches != before[k])
-            bw_ui.dirty = 1;
-        /* "fish on": a fish takes the hook. A timed bite as it starts; an automatic catch (no bite before
-         * it) as it lands. Landing a timed bite is the same fish, so it does not play again. */
-        if ((bw.bite[k] && !bit[k]) || (bw.track[k].catches != before[k] && !bit[k]))
-            bw_clip_trigger(&bw_fish_on);
-    }
-    bw_clip_mix(&bw_fish_on, lr, n, master_q12);
+    if (bw.event.seq != seq)
+        bw_ui.dirty = 1;
+    bw_clip_mix(&bw_fish_on, lr, n, master_q12 * bw_pref.clip_level / 100u);
+}
+
+/* ------------------------------------------------------------------ controls */
+static int bw_step_val(int v, int d, int lo, int hi)
+{
+    return clamp(v + d, lo, hi);
+}
+static void bw_patch_store(unsigned k, unsigned slot)
+{
+    bw_user.user[k][slot % 4] = bw.track[k].patch;
+    if (plat_store_save(OBJ_PATCHES, &bw_user, sizeof bw_user) == 0)
+        app_say("PATCH STORED", "");
+    else
+        app_say("STORE FAILED", "");
 }
 static void bw_knob(unsigned knob, int d)
 {
-    bw_track *t = &bw.track[bw_ui.track];
-    bw_operator *o = &t->op[bw_ui.op];
-    if (bw_ui.page == BW_FISHING)
+    unsigned k = bw_ui.track, sub = bw_ui.sub[bw_ui.page];
+    bw_track *t = &bw.track[k];
+    bw_song *s = &bw.song;
+    bw_patch *p = &t->patch;
+    bw_operator *o = &p->op[bw_ui.op];
+    switch (bw_ui.page)
     {
+    case BW_RIVER:
+        if (knob == 0)
+            t->volume = (uint8_t)bw_step_val(t->volume, d, 0, 100);
+        if (knob == 1)
+            t->pan = (uint8_t)bw_step_val(t->pan, d, 0, 100);
+        if (knob == 2)
+            t->mute = (uint8_t)bw_step_val(t->mute, d, 0, 1);
+        if (knob == 3)
+            t->solo = (uint8_t)bw_step_val(t->solo, d, 0, 1);
+        break;
+    case BW_FISHING:
         if (knob == 0)
         {
-            t->wait_min = (uint16_t)clamp(t->wait_min + d, 0, 600);
+            t->wait_min = (uint16_t)bw_step_val(t->wait_min, d, 0, 600);
             if (t->wait_max < t->wait_min)
                 t->wait_max = t->wait_min;
         }
         if (knob == 1)
-        {
-            t->wait_max = (uint16_t)clamp(t->wait_max + d, t->wait_min, 600);
-        }
+            t->wait_max = (uint16_t)bw_step_val(t->wait_max, d, t->wait_min, 600);
         if (knob == 2)
-            t->manual = (uint8_t)clamp(t->manual + d, 0, 1);
+            t->manual = (uint8_t)bw_step_val(t->manual, d, 0, 1);
         if (knob == 3)
-            t->variation = (uint8_t)clamp(t->variation + d, 1, 16);
-        if (bw.hooked[bw_ui.track])
-            bw_cast(&bw, bw_ui.track);
-    }
-    else if (bw_ui.page == BW_EDIT)
-    {
-        if (bw_ui.edit_page == 0)
+            t->bait = (uint8_t)bw_step_val(t->bait, d, 0, BW_NBAIT - 1);
+        if (knob < 2 && bw_fish_state(&bw, k) == BW_FISH_WAIT)
+            bw_cast(&bw, k); /* new waits start now */
+        break;
+    case BW_THEME:
+        if (sub == 0)
         {
             if (knob == 0)
-                o->ratio = (uint16_t)clamp(o->ratio + d * 5, 1, 1600);
+            {
+                unsigned len = t->cur.len, nl = (unsigned)bw_step_val((int)len, d, 4, BW_STEPS);
+                for (unsigned i = len; i < nl; i++) /* new steps repeat the start */
+                    t->cur.s[i] = t->cur.s[i - len];
+                t->cur.len = (uint8_t)nl;
+            }
             if (knob == 1)
-                o->level = (uint8_t)clamp(o->level + d, 0, 100);
+                t->density = (uint8_t)bw_step_val(t->density, d, 0, 100);
             if (knob == 2)
-                o->feedback = (uint8_t)clamp(o->feedback + d, 0, 100);
-            if (knob == 3)
-                bw_algorithm(t, (unsigned)clamp(t->algorithm + d, 0, 7));
+                t->octave = (int8_t)bw_step_val(t->octave, d, -3, 3);
         }
-        else if (bw_ui.edit_page == 1)
+        else if (d > 0)
         {
             if (knob == 0)
-                o->fixed = (uint8_t)clamp(o->fixed + d, 0, 1);
+            {
+                if (t->has_prev)
+                {
+                    bw_release(&bw, k);
+                    app_say("RELEASED", "THEME RESTORED");
+                }
+                else
+                    app_say("NOTHING TO RELEASE", "");
+            }
             if (knob == 1)
-                o->hz = (uint16_t)clamp(o->hz + d * 10, 1, 16000);
+            {
+                bw_restore_home(&bw, k);
+                app_say("HOME THEME", "");
+            }
             if (knob == 2)
-                o->velocity = (uint8_t)clamp(o->velocity + d, 0, 100);
+            {
+                bw_make_home(&bw, k);
+                app_say("NEW HOME THEME", "");
+            }
             if (knob == 3)
-                t->carrier[bw_ui.op] = (uint8_t)clamp(t->carrier[bw_ui.op] + d, 0, 100);
+            {
+                bw.rec_arm[k] = 1;
+                bw.rec_left[k] = t->cur.len;
+                app_say("REC ARMED", "PLAY WHITE KEYS");
+            }
+        }
+        else if (knob == 3)
+            bw.rec_arm[k] = 0;
+        break;
+    case BW_SCALE:
+        if (knob == 0)
+            s->key = (uint8_t)((s->key + 12 + (d > 0 ? 1 : -1)) % 12);
+        if (knob == 1)
+            s->scale = (uint8_t)bw_step_val(s->scale, d, 0, BW_SCALES - 1);
+        if (knob == 2)
+            s->progression = (uint8_t)bw_step_val(s->progression, d, 0, BW_PROGRESSIONS - 1);
+        if (knob == 3)
+            s->swing = (uint8_t)bw_step_val(s->swing, d, 0, 60);
+        break;
+    case BW_EDIT:
+        if (sub == 0)
+        {
+            if (knob == 0)
+                o->ratio = (uint16_t)bw_step_val(o->ratio, d * 5, 5, 1600);
+            if (knob == 1)
+                o->level = (uint8_t)bw_step_val(o->level, d, 0, 100);
+            if (knob == 2)
+                o->feedback = (uint8_t)bw_step_val(o->feedback, d, 0, 100);
+            if (knob == 3)
+                bw_algorithm(p, (unsigned)bw_step_val(p->algorithm, d, 0, 7));
+        }
+        else if (sub == 1)
+        {
+            if (knob == 0)
+                o->fixed = (uint8_t)bw_step_val(o->fixed, d, 0, 1);
+            if (knob == 1)
+                o->hz = (uint16_t)bw_step_val(o->hz, d * 10, 1, 16000);
+            if (knob == 2)
+                o->velocity = (uint8_t)bw_step_val(o->velocity, d, 0, 100);
+            if (knob == 3)
+                p->carrier[bw_ui.op] = (uint8_t)bw_step_val(p->carrier[bw_ui.op], d, 0, 100);
+        }
+        else if (sub == 2)
+        {
+            if (knob == 0)
+                bw_ui.route_source = (uint8_t)bw_step_val(bw_ui.route_source, d, 1, 5);
+            if (bw_ui.route_dest >= bw_ui.route_source)
+                bw_ui.route_dest = (uint8_t)(bw_ui.route_source - 1);
+            if (knob == 1)
+                bw_ui.route_dest = (uint8_t)bw_step_val(bw_ui.route_dest, d, 0, bw_ui.route_source - 1);
+            if (knob == 2)
+            {
+                uint8_t *r = &p->route[bw_ui.route_source][bw_ui.route_dest];
+                *r = (uint8_t)bw_step_val(*r, d, 0, 100);
+            }
+            if (knob == 3)
+                p->carrier[bw_ui.route_source] = (uint8_t)bw_step_val(p->carrier[bw_ui.route_source], d, 0, 100);
         }
         else
         {
             if (knob == 0)
-                bw_ui.route_source = (uint8_t)clamp(bw_ui.route_source + d, 1, 5);
-            if (bw_ui.route_dest >= bw_ui.route_source)
-                bw_ui.route_dest = bw_ui.route_source - 1;
-            if (knob == 1)
-                bw_ui.route_dest = (uint8_t)clamp(bw_ui.route_dest + d, 0, bw_ui.route_source - 1);
-            if (knob == 2)
+                bw_ui.patch_pick = (uint8_t)bw_step_val(bw_ui.patch_pick, d, 0, 7);
+            if (knob == 1 && d > 0)
             {
-                uint8_t *r = &t->route[bw_ui.route_source][bw_ui.route_dest];
-                *r = (uint8_t)clamp(*r + d, 0, 100);
+                if (bw_ui.patch_pick < 4)
+                    bw_patch_factory(p, k, bw_ui.patch_pick);
+                else
+                    *p = bw_user.user[k][bw_ui.patch_pick - 4];
+                t->patch_slot = bw_ui.patch_pick;
+                app_say("PATCH LOADED", "");
+            }
+            if (knob == 2 && d > 0)
+            {
+                if (bw_ui.patch_pick >= 4)
+                {
+                    bw_patch_store(k, bw_ui.patch_pick - 4u);
+                }
+                else
+                    app_say("PICK A USER SLOT", "U1-U4");
+            }
+        }
+        break;
+    case BW_ENV:
+        if (knob == 0)
+            o->attack = (uint16_t)bw_step_val(o->attack, d * 5, 0, 10000);
+        if (knob == 1)
+            o->decay = (uint16_t)bw_step_val(o->decay, d * 5, 0, 10000);
+        if (knob == 2)
+            o->sustain = (uint8_t)bw_step_val(o->sustain, d, 0, 100);
+        if (knob == 3)
+            o->release = (uint16_t)bw_step_val(o->release, d * 5, 0, 10000);
+        break;
+    case BW_LFO:
+        if (knob == 0)
+            t->lfo_rate = (uint8_t)bw_step_val(t->lfo_rate, d, 0, 100);
+        if (knob == 1)
+            t->lfo_depth = (uint8_t)bw_step_val(t->lfo_depth, d, 0, 100);
+        if (knob == 2)
+            t->lfo_target = (uint8_t)bw_step_val(t->lfo_target, d, 0, BW_NLFO_TARGET - 1);
+        if (knob == 3)
+            t->lfo_shape = (uint8_t)bw_step_val(t->lfo_shape, d, 0, BW_NLFO_SHAPE - 1);
+        break;
+    case BW_FX:
+    {
+        uint8_t *v[4][4] = {{&t->send_rev, &t->send_dly, &t->send_cho, &t->drive},
+                            {&s->rev_size, &s->rev_tone, &s->rev_level, &s->dly_time},
+                            {&s->dly_feedback, &s->dly_level, &s->cho_rate, &s->cho_depth},
+                            {&s->tone, &s->width, 0, 0}};
+        if (v[sub][knob])
+            *v[sub][knob] = (uint8_t)bw_step_val(*v[sub][knob], d, 0, 100);
+        break;
+    }
+    case BW_ARP:
+        if (knob == 0)
+            s->arp_mode = (uint8_t)bw_step_val(s->arp_mode, d, 0, BW_NARP_MODE - 1);
+        if (knob == 1)
+            s->arp_rate = (uint8_t)bw_step_val(s->arp_rate, d, 0, 4);
+        if (knob == 2)
+            s->arp_octaves = (uint8_t)bw_step_val(s->arp_octaves, d, 1, 3);
+        if (knob == 3)
+            s->arp_gate = (uint8_t)bw_step_val(s->arp_gate, d * 5, 5, 100);
+        break;
+    case BW_GLOBAL:
+        if (sub == 0)
+        {
+            if (knob == 0)
+                s->tempo = (uint16_t)bw_step_val(s->tempo, d, 30, 240);
+            if (knob == 1)
+                s->sync = (uint8_t)bw_step_val(s->sync, d, 0, 1);
+            if (knob == 2)
+                s->weather = (uint8_t)bw_step_val(s->weather, d, 0, BW_NWEATHER - 1);
+            if (knob == 3)
+                s->pb_event = (uint8_t)bw_step_val(s->pb_event, d, 0, 1);
+        }
+        else if (sub == 1)
+        {
+            if (knob == 0)
+                bw_pref.units = (uint8_t)bw_step_val(bw_pref.units, d, 0, 1);
+            if (knob == 1)
+                bw_pref.clip_on = (uint8_t)bw_step_val(bw_pref.clip_on, d, 0, 1);
+            if (knob == 2)
+                bw_pref.clip_level = (uint8_t)bw_step_val(bw_pref.clip_level, d * 5, 0, 100);
+            if (knob == 3)
+                bw_pref.autosave = (uint8_t)bw_step_val(bw_pref.autosave, d, 0, 1);
+        }
+        else
+        {
+            if (knob == 0)
+                bw_ui.slot_pick = (uint8_t)bw_step_val(bw_ui.slot_pick, d, 0, 3);
+            if (knob == 1 && d > 0)
+            {
+                if (bw_load_slot(bw_ui.slot_pick))
+                {
+                    bw_pref.slot = bw_ui.slot_pick;
+                    app_say("LOADED", "");
+                }
+                else
+                    app_say("EMPTY SLOT", "");
+            }
+            if (knob == 2 && d > 0)
+            {
+                bw_pref.slot = bw_ui.slot_pick;
+                bw_save();
             }
             if (knob == 3)
-                t->carrier[bw_ui.route_source] =
-                    (uint8_t)clamp(t->carrier[bw_ui.route_source] + d, 0, 100);
+            {
+                bw_pref.midi_out = (uint8_t)bw_step_val(bw_pref.midi_out, d, 0, 1);
+                bw.midi_out = bw_pref.midi_out;
+            }
         }
-    }
-    else if (bw_ui.page == BW_ENV)
-    {
-        if (knob == 0)
-            o->attack = (uint16_t)clamp(o->attack + d * 5, 0, 10000);
-        if (knob == 1)
-            o->decay = (uint16_t)clamp(o->decay + d * 5, 0, 10000);
-        if (knob == 2)
-            o->sustain = (uint8_t)clamp(o->sustain + d, 0, 100);
-        if (knob == 3)
-            o->release = (uint16_t)clamp(o->release + d * 5, 0, 10000);
-    }
-    else if (bw_ui.page == BW_GLOBAL)
-    {
-        if (knob == 0)
-            bw.tempo = (uint16_t)clamp(bw.tempo + d, 30, 240);
-        if (knob == 1)
-            t->root = (uint8_t)clamp(t->root + d, 0, 96);
-        if (knob == 2)
-            t->volume = (uint8_t)clamp(t->volume + d, 0, 100);
-    }
-    else if (bw_ui.page == BW_RIVER)
-    {
-        if (knob == 0)
-            t->volume = (uint8_t)clamp(t->volume + d, 0, 100);
-        if (knob == 1)
-            t->root = (uint8_t)clamp(t->root + d, 0, 96);
+        break;
+    default:
+        break;
     }
     bw_ui.dirty = 1;
 }
+/* knobs whose actions touch storage run outside the lock */
+static int bw_knob_stores(unsigned knob, int d)
+{
+    unsigned sub = bw_ui.sub[bw_ui.page];
+    return d > 0 && ((bw_ui.page == BW_EDIT && sub == 3 && knob == 2) ||
+                     (bw_ui.page == BW_GLOBAL && sub == 2 && (knob == 1 || knob == 2)));
+}
+static void bw_page(unsigned page)
+{
+    /* the same button again: its next sub-page (HOME: river <-> catch log; SEQ: fishing <-> theme) */
+    if (page == BW_RIVER && bw_ui.page == BW_RIVER)
+        page = BW_LOG;
+    else if (page == BW_FISHING && bw_ui.page == BW_FISHING)
+        page = BW_THEME;
+    else if (page == bw_ui.page && bw_subpages[page] > 1)
+        bw_ui.sub[page] = (uint8_t)((bw_ui.sub[page] + 1) % bw_subpages[page]);
+    bw_ui.page = (uint8_t)page;
+}
 static void bw_input(void)
 {
+    static const uint8_t white[16] = PLAT_WHITE_KEYS, black[11] = PLAT_BLACK_KEYS;
+    uint32_t now = plat_ms();
     uint32_t buttons = plat_buttons(), keys = plat_keys(), pressed = buttons & ~bw_ui.buttons;
-    uint32_t lock = plat_lock();
-    int e;
-    int turn[NE];
+    int turn[NE], e;
+    if (bw_ui.held)
+        return;
+    for (unsigned k = 0; k < NE; k++)
+        turn[k] = plat_enc((int)k);
     if (pressed || keys != bw_ui.keys)
         bw_ui.draw = 1;
     for (unsigned k = 0; k < NE; k++)
-    {
-        turn[k] = plat_enc((int)k);
         if (turn[k])
             bw_ui.draw = 1;
-    }
-    if ((e = turn[EN_ALGO]))
+    if (pressed || keys != bw_ui.keys || turn[0] || turn[1] || turn[2] || turn[3] || turn[4] || turn[5] || turn[6])
+        bw_ui.last_input = now;
+    unsigned k = bw_ui.track;
+    int fighting = bw_fish_state(&bw, k) == BW_FISH_FIGHT;
+    uint32_t lock = plat_lock();
+    if ((e = turn[EN_ALGO]) && !fighting)
+    {
+        /* the held macros and live notes stay with the track they started on */
         bw_ui.track = (uint8_t)clamp(bw_ui.track + e, 0, 3);
+        bw.live_track = bw_ui.track;
+    }
+    if (fighting)
+    {
+        /* the fight: SELECT or K1 reels in */
+        unsigned dt = now - bw_ui.fight_ms;
+        bw_ui.fight_ms = now;
+        int r = bw_fight(&bw, k, turn[EN_SELECT] + turn[EN_K1], dt);
+        if (r != BW_FIGHT_ON)
+            bw_ui.draw = 1;
+        turn[EN_SELECT] = turn[EN_K1] = 0;
+    }
     if ((e = turn[EN_SELECT]))
     {
-        if (bw_ui.page == BW_EDIT || bw_ui.page == BW_ENV)
-            bw_ui.op = (uint8_t)clamp(bw_ui.op + e, 0, 5);
+        /* on EDIT and ENVELOPE it picks the operator; past the sixth (or before the first) it goes on paging */
+        int op = (int)bw_ui.op + e;
+        if ((bw_ui.page == BW_EDIT || bw_ui.page == BW_ENV) && op >= 0 && op <= 5)
+            bw_ui.op = (uint8_t)op;
         else
-            bw_ui.page = (uint8_t)clamp(bw_ui.page + e, 0, BW_STATS);
+            bw_ui.page = (uint8_t)clamp(bw_ui.page + (e > 0 ? 1 : -1), 0, BW_NPAGES - 1);
     }
-    if ((e = turn[EN_PRESET]) && bw_ui.page == BW_EDIT)
-        bw_ui.edit_page = (uint8_t)clamp(bw_ui.edit_page + e, 0, 2);
-    for (unsigned k = 0; k < 4; k++)
-        if ((e = turn[EN_K1 + k]))
-            bw_knob(k, e);
-    if (pressed & (1u << B_HOME))
-        bw_ui.page = BW_RIVER;
-    if (pressed & (1u << B_SEQ))
-        bw_ui.page = BW_FISHING;
-    if (pressed & (1u << B_EDIT))
-        bw_ui.page = BW_EDIT;
-    if (pressed & (1u << B_ENV))
-        bw_ui.page = BW_ENV;
-    if (pressed & (1u << B_GLO))
-        bw_ui.page = BW_GLOBAL;
-    if (pressed & (1u << B_SEL))
-        bw_ui.page = BW_STATS;
-    if (pressed & ((1u << B_FX) | (1u << B_LFO) | (1u << B_ARP)))
-        app_say("NOT ASSIGNED", "");
-    if (pressed & (1u << B_PLAY))
+    if ((e = turn[EN_PRESET]))
     {
-        bw_transport(&bw, !bw.playing);
-        for (unsigned k = 0; k < 4; k++)
-            bw_ui.preview[k] = -1;
+        if (bw_ui.page == BW_FISHING)
+        {
+            bw.track[k].depth = (uint8_t)clamp(bw.track[k].depth + e, 0, BW_NDEPTH - 1);
+            bw_ui.dirty = 1;
+        }
+        else if (bw_subpages[bw_ui.page] > 1)
+            bw_ui.sub[bw_ui.page] = (uint8_t)clamp(bw_ui.sub[bw_ui.page] + e, 0, bw_subpages[bw_ui.page] - 1);
     }
+    int store_knob = -1, store_d = 0;
+    for (unsigned i = 0; i < 4; i++)
+        if ((e = turn[EN_K1 + i]))
+        {
+            if (bw_knob_stores(i, e))
+                store_knob = (int)i, store_d = e;
+            else
+                bw_knob(i, e);
+        }
+    static const uint8_t page_of[NB] = {BW_FX, BW_SCALE, BW_ENV, BW_LFO, BW_EDIT, BW_GLOBAL, BW_RIVER, 0xFF, BW_ARP,
+                                        BW_FISHING, 0xFF, 0xFF, 0xFF, 0xFF};
+    for (unsigned b = 0; b < NB; b++)
+        if ((pressed >> b & 1) && page_of[b] != 0xFF && !fighting)
+        {
+            if (b == B_ARP && bw_ui.page == BW_ARP)
+            {
+                bw.arp = (uint8_t)((bw.arp + 1) % 3);
+                if (!bw.arp)
+                {
+                    for (unsigned i = 0; i < 16; i++)
+                        bw.arp_held[i] = -1;
+                    if (bw.live_note[k] >= 0)
+                        bw_live_note(&bw, k, (unsigned)bw.live_note[k], 0, 0);
+                    bw.live_note[k] = -1;
+                }
+                static const char *const arp_state[3] = {"ARP OFF", "ARP ON", "ARP LATCH"};
+                app_say(arp_state[bw.arp], "");
+            }
+            else
+                bw_page(page_of[b]);
+        }
+    if (pressed & (1u << B_PLAY))
+        bw_transport(&bw, !bw.playing);
     if (pressed & (1u << B_REC))
     {
-        if (bw.bite[bw_ui.track])
+        int st = bw_fish_state(&bw, k);
+        if (st == BW_FISH_BITE)
         {
-            if (bw_land(&bw, bw_ui.track))
-                bw_ui.dirty = 1;
+            if (bw_hookset(&bw, k))
+            {
+                bw_ui.page = BW_FISHING;
+                bw_ui.fight_ms = now;
+                app_say(bw.fish_rare[k] ? "FISH ON!" : "HOOK SET", "REEL WITH SELECT");
+            }
         }
-        else if (bw.hooked[bw_ui.track])
-            bw_retrieve(&bw, bw_ui.track);
-        else
-            bw_cast(&bw, bw_ui.track);
+        else if (st == BW_FISH_WAIT)
+            bw_retrieve(&bw, k);
+        else if (st == BW_FISH_IDLE)
+            bw_cast(&bw, k);
     }
     if (pressed & (1u << B_OCTUP))
-        bw_ui.octave = (int8_t)clamp(bw_ui.octave + 1, -2, 2);
+        bw.live_oct = (int8_t)clamp(bw.live_oct + 1, -2, 2);
     if (pressed & (1u << B_OCTDN))
-        bw_ui.octave = (int8_t)clamp(bw_ui.octave - 1, -2, 2);
-    if (!bw.playing)
-        for (unsigned k = 0; k < 27; k++)
-        {
-            int note = clamp(53 + (int)k + bw_ui.octave * 12, 0, 127);
-            if ((keys & (1u << k)) && !(bw_ui.keys & (1u << k)))
-            {
-                bw_note_on(&bw, bw_ui.track, (unsigned)note, 100);
-                bw_ui.preview[bw_ui.track] = (int16_t)note;
-            }
-            if (!(keys & (1u << k)) && (bw_ui.keys & (1u << k)))
-                for (unsigned t = 0; t < 4; t++)
-                    if (bw_ui.preview[t] == note)
-                    {
-                        bw_note_off(&bw, t);
-                        bw_ui.preview[t] = -1;
-                    }
-        }
+        bw.live_oct = (int8_t)clamp(bw.live_oct - 1, -2, 2);
+    /* the keys: white ones play the fish in the scale (or the arpeggiator), black ones bend its FM */
+    uint32_t changed = keys ^ bw_ui.keys;
+    for (unsigned i = 0; i < 16; i++)
+        if (changed >> white[i] & 1)
+            bw_live_key(&bw, i, (int)(keys >> white[i] & 1), 100);
+    for (unsigned i = 0; i < 11; i++)
+        if (changed >> black[i] & 1)
+            bw_macro(&bw, k, i, (int)(keys >> black[i] & 1));
     bw_ui.buttons = buttons;
     bw_ui.keys = keys;
     plat_unlock(lock);
+    if (store_knob >= 0)
+        bw_knob((unsigned)store_knob, store_d);
     if (pressed & (1u << B_SAVE))
         bw_save();
-}
-static void bw_draw_fish(int x, int y, unsigned k, int selected)
-{
-    /* Original coarse pixel silhouette; species artwork awaits the user's cast. */
-    uint16_t c = bw_color(k);
-    if (!selected)
-        c = RGB(50, 80, 85);
-    cv_rect(x + 8, y + 4, 24, 12, c);
-    cv_rect(x + 12, y, 12, 20, c);
-    cv_rect(x, y + 2, 4, 16, c);
-    cv_rect(x + 4, y + 5, 4, 10, c);
-    cv_rect(x + 30, y + 7, 8, 6, c);
-    cv_rect(x + 28, y + 5, 3, 3, C_BLACK);
-    cv_rect(x + 16, y - 3, 8, 3, c);
-}
-static void bw_label(int x, int y, const char *label, int value)
-{
-    char number[12];
-    bw_text_number(number, value);
-    cv_text(x, y, &FONT_XS, label, C_GRAY);
-    cv_text(x, y + 15, &FONT_B, number, C_WHITE);
-}
-static void bw_draw(void)
-{
-    bw_track t;
-    uint32_t catches[4], best[4], last[4], missed;
-    uint8_t hooks[4], bites[4], step, playing;
-    unsigned tempo, remaining, op = bw_ui.op;
-    uint32_t lock = plat_lock();
-    t = bw.track[bw_ui.track];
-    step = bw.step;
-    playing = bw.playing;
-    tempo = bw.tempo;
-    for (unsigned k = 0; k < 4; k++)
+    /* autosave: stopped, changed, and nothing touched for ten seconds (a flash write pauses the sound) */
+    if (bw_pref.autosave && bw_ui.dirty && !bw.playing && now - bw_ui.last_input > 10000u)
     {
-        hooks[k] = bw.hooked[k];
-        bites[k] = bw.bite[k];
-        catches[k] = bw.track[k].catches;
-        best[k] = bw.track[k].best_mm;
-        last[k] = bw.track[k].last_mm;
+        bw_save_all(bw_pref.slot);
+        bw_ui.last_input = now;
     }
-    int32_t delta = (int32_t)(bw.deadline[bw_ui.track] - bw.clock);
-    remaining = delta > 0 ? (unsigned)delta / BW_RATE : 0;
-    missed = bw.missed[bw_ui.track];
-    plat_unlock(lock);
-    const bw_operator *o = &t.op[op];
-    char number[12];
-    for (unsigned band = 0; band < 5; band++)
+}
+
+/* ------------------------------------------------------------------ drawing, in screen coordinates; each band
+ * draws what falls in it (the canvas is one 48-row band) */
+static int32_t bw_oy;
+static int bw_in(int32_t y, int32_t h)
+{
+    return y + h > bw_oy && y < bw_oy + 48;
+}
+static void R(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
+{
+    if (bw_in(y, h))
+        cv_rect(x, y - bw_oy, w, h, c);
+}
+static int32_t T(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
+{
+    if (bw_in(y, (int32_t)f->h))
+        return cv_text(x, y - bw_oy, f, s, c);
+    return x + text_w(f, s);
+}
+static void TR(int32_t xr, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
+{
+    T(xr - text_w(f, s), y, f, s, c);
+}
+static void P(int32_t x, int32_t y, uint16_t c)
+{
+    if (bw_in(y, 1))
+        cv_pset(x, y - bw_oy, c);
+}
+static void bw_sheet_draw(const bw_sheet *sh, unsigned frame, int32_t x, int32_t y, int flip, uint16_t tint)
+{
+    if (!sh->px || !bw_in(y, sh->h))
+        return;
+    frame %= (unsigned)(sh->cols * sh->rows);
+    const uint8_t *px = sh->px + frame * ((uint32_t)sh->w * sh->h / 2u);
+    for (unsigned j = 0; j < sh->h; j++)
     {
-        cv_begin(240, 48, RGB(5, 16, 23));
-        if (band == 0)
+        if (!bw_in(y + (int32_t)j, 1))
+            continue;
+        for (unsigned i = 0; i < sh->w; i++)
         {
-            cv_text(7, 2, &FONT_B, APP_NAME, C_WHITE);
-            cv_text(7, 22, &FONT_XS,
-                    bw_ui.message[0] && (int32_t)(bw_ui.message_until - plat_ms()) > 0
-                        ? bw_ui.message
-                        : bw_pages[bw_ui.page],
-                    bw_color(bw_ui.track));
-            cv_text(159, 2, &FONT_XS, playing ? "PLAYING" : "STOPPED", C_GRAY);
-            bw_text_number(number, (int)bw_ui.track + 1);
-            cv_text(184, 22, &FONT_B, number, C_WHITE);
-            if (bw_ui.dirty)
-                cv_text(217, 2, &FONT_XS, "*", C_HI);
+            unsigned n = j * sh->w + i, b = px[n / 2], c = n & 1 ? b >> 4 : b & 15u;
+            if (c == 0 && sh->key)
+                continue;
+            P(x + (int32_t)(flip ? sh->w - 1 - i : i), y + (int32_t)j, tint ? tint : sh->pal[c]);
         }
-        else if (bw_ui.page == BW_RIVER)
+    }
+}
+/* the fish, until its art arrives: a pixel shape per kind, coloured per species */
+static void bw_draw_fish(int32_t x, int32_t y, unsigned sp, unsigned frame, int dim)
+{
+    const bw_sheet *sh = &bw_art_fish[sp % BW_SPECIES];
+    if (sh->px)
+    {
+        bw_sheet_draw(sh, dim ? 11u : frame, x, y, 0, 0);
+        return;
+    }
+    static const uint16_t body[8] = {RGB(90, 150, 120), RGB(110, 140, 70),  RGB(190, 150, 80),  RGB(110, 120, 135),
+                                     RGB(150, 160, 150), RGB(210, 190, 60), RGB(80, 120, 90),   RGB(150, 120, 80)};
+    static const uint16_t mark[8] = {RGB(240, 150, 50), RGB(40, 60, 30),   RGB(200, 40, 40),   RGB(220, 220, 230),
+                                     RGB(40, 50, 40),   RGB(220, 70, 40),  RGB(230, 120, 60),  RGB(70, 50, 30)};
+    uint16_t c = dim ? RGB(35, 55, 70) : body[sp % 8], m = dim ? c : mark[sp % 8];
+    unsigned kind = sp % 4, sw = frame & 1;
+    int32_t h = kind == BW_BLUEGILL ? 18 : kind == BW_CATFISH ? 10 : 12, cy = y + 12;
+    R(x + 10, cy - h / 2, 28, h, c);                          /* body */
+    R(x + 6, cy - h / 2 + 2, 4, h - 4, c);
+    R(x + 38, cy - h / 2 + 2, 6, h - 4, c);                   /* head */
+    R(x, cy - 7 + (int32_t)sw, 6, 14 - 2 * (int32_t)sw, c);   /* tail */
+    R(x + 16, cy - h / 2 - 3, 12, 3, c);                      /* dorsal */
+    R(x + 40, cy - 2, 2, 2, C_BLACK);                         /* eye */
+    if (kind == BW_BLUEGILL)
+        R(x + 34, cy - 2, 3, 4, m);                           /* ear flap / crappie speckle */
+    else if (kind == BW_BASS)
+        R(x + 10, cy, 30, 2, m);                              /* lateral stripe / peacock bars */
+    else if (kind == BW_TROUT)
+    {
+        R(x + 14, cy - 3, 2, 2, m);
+        R(x + 22, cy + 1, 2, 2, m);
+        R(x + 30, cy - 2, 2, 2, m);
+    }
+    else
+    {
+        R(x + 44, cy + 1, 4, 1, m);                           /* barbels */
+        R(x + 44, cy + 3, 3, 1, m);
+    }
+    if (sp >= 4 && !dim)
+        R(x + 20, cy - h / 2 - 5, 2, 2, C_GOLD);              /* the rare one's glint */
+}
+static void bw_bar(int32_t x, int32_t y, int32_t w, int value, int max, uint16_t c)
+{
+    int32_t f = max > 0 ? (int32_t)((int64_t)w * clamp(value, 0, max) / max) : 0;
+    int32_t bx = x + f - 2 < x ? x : x + f - 2;
+    R(x, y + 2, w, 1, C_BAR);   /* the line */
+    R(x, y + 1, f, 3, c);       /* reeled in so far */
+    R(bx, y - 2, 4, 4, C_PINK); /* the bobber: red over white */
+    R(bx, y + 2, 4, 3, C_TXT);
+}
+/* a parameter: label, value, bar (MIKU-FM's mixer rows) */
+static void bw_param(int32_t x, int32_t y, const char *label, const char *value, int v, int max, uint16_t c)
+{
+    /* label above, value below it on the right, the line under both: a column 108 wide */
+    T(x, y, &FONT_XS, label, C_MUTE);
+    TR(x + 108, y + 13, &FONT_B, value, C_TXT);
+    if (max > 0)
+        bw_bar(x, y + 32, 108, v, max, c);
+}
+static void bw_param_n(int32_t x, int32_t y, const char *label, int v, int max, uint16_t c)
+{
+    char t[12];
+    bw_num(t, v);
+    bw_param(x, y, label, t, v, max, c);
+}
+static void bw_header(const char *title, uint16_t c, const char *right)
+{
+    char t[40];
+    R(0, 0, 240, 48, C_BG);
+    T(6, 1, &FONT_M, title, c);
+    TR(234, 4, &FONT_XS, bw_species_names[bw_ui.track], bw_color(bw_ui.track));
+    t[0] = 0;
+    bw_cat(t, sizeof t, "BPM ");
+    bw_num(t + 4, bw.song.tempo);
+    bw_cat(t, sizeof t, "  ");
+    bw_cat(t, sizeof t, bw_key_names[bw.song.key]);
+    bw_cat(t, sizeof t, " ");
+    bw_cat(t, sizeof t, bw_scale_names[bw.song.scale]);
+    if (bw_ui.message[0] && (int32_t)(bw_ui.message_until - plat_ms()) > 0)
+        T(6, 29, &FONT_XS, bw_ui.message, C_PINK);
+    else
+        T(6, 29, &FONT_XS, t, C_YEL);
+    TR(234, 29, &FONT_XS, right, bw.playing ? C_YEL : C_MUTE);
+    if (bw_ui.dirty)
+        T(226, 16, &FONT_XS, "*", C_PINK);
+    for (int32_t x = 0; x < 240; x += 8) /* the waterline */
+        R(x + (int32_t)((plat_ms() / 400u) % 8u), 46, 5, 1, C_BAR);
+}
+static const char *bw_state_text(unsigned k)
+{
+    switch (bw_fish_state(&bw, k))
+    {
+    case BW_FISH_WAIT:
+        return "LINE IN THE WATER";
+    case BW_FISH_BITE:
+        return "BITE! REC TO SET";
+    case BW_FISH_FIGHT:
+        return "FISH ON - REEL!";
+    default:
+        return "REC TO CAST";
+    }
+}
+static void bw_draw_bobber(int32_t x, int32_t y, unsigned k, uint32_t ms)
+{
+    k &= 3u;
+    int st = bw_fish_state(&bw, k);
+    int32_t bob = (ms / 300u + k) & 1;
+    int32_t left = (int32_t)(bw.deadline[k] - bw.clock);
+    if (st == BW_FISH_WAIT && bw.playing && left >= 0 && left < (int32_t)BW_RATE)
+        bob = (ms / 90u) & 1 ? 2 : -1; /* a nibble */
+    if (st == BW_FISH_BITE || st == BW_FISH_FIGHT)
+    {
+        int32_t r = (int32_t)(ms / 60u % 8u);
+        R(x - r, y + 6, 2 * r + 2, 1, C_TXT); /* rings */
+        R(x - 1, y + 4, 4, 2, RGB(220, 60, 50)); /* pulled under */
+        return;
+    }
+    R(x, y + bob, 3, 3, RGB(230, 70, 60));
+    R(x, y + 3 + bob, 3, 3, C_WHITE);
+    R(x + 1, y - 6 + bob, 1, 6, C_MUTE);
+}
+static void bw_draw_theme(int32_t y0, int32_t h, unsigned k)
+{
+    const bw_theme *th = &bw.track[k].cur;
+    int lo = 99, hi = -99;
+    for (unsigned i = 0; i < th->len; i++)
+        if (th->s[i].gate == BW_GATE_NOTE)
         {
-            unsigned k = band - 1;
-            uint16_t c = bw_color(k);
-            for (int x = 0; x < 240; x += 12)
-                cv_rect(x, 39, 8, 2, RGB(18, 47, 58));
-            bw_draw_fish(13, 12, k, k == bw_ui.track);
-            cv_text(62, 1, &FONT_XS, bw_names[k], k == bw_ui.track ? C_WHITE : C_GRAY);
-            cv_text(62, 20, &FONT_XS,
-                    bites[k]   ? "BITE! REC TO LAND"
-                    : hooks[k] ? "HOOK PLACED"
-                               : "REC TO CAST",
-                    c);
-            if (hooks[k])
-            {
-                cv_rect(52, 0, 1, 23, C_GRAY);
-                cv_rect(48, 22, 5, 2, C_WHITE);
-            }
+            lo = th->s[i].deg < lo ? th->s[i].deg : lo;
+            hi = th->s[i].deg > hi ? th->s[i].deg : hi;
         }
-        else if (bw_ui.page == BW_FISHING)
+    if (lo > hi)
+        lo = hi = 0;
+    int span = hi - lo + 1 < 8 ? 8 : hi - lo + 1;
+    int32_t cw = 228 / (int32_t)th->len, rowh = (h - 6) / span;
+    if (rowh < 2)
+        rowh = 2;
+    R(6, y0, 228, h, C_PANEL);
+    for (unsigned i = 0; i < th->len; i += 4)
+        R(6 + (int32_t)i * cw, y0, 1, h, C_BAR);
+    int32_t lastx = -1, lasty = 0;
+    for (unsigned i = 0; i < th->len; i++)
+    {
+        const bw_step *s = &th->s[i];
+        if (s->gate == BW_GATE_NOTE)
         {
-            if (band == 1)
-            {
-                bw_draw_fish(15, 15, bw_ui.track, 1);
-                cv_text(64, 8, &FONT_B,
-                        bites[bw_ui.track]   ? "BITE!"
-                        : hooks[bw_ui.track] ? "WAITING"
-                                             : "NO HOOK",
-                        C_WHITE);
-                bw_label(162, 0, "SECONDS", (int)remaining);
-            }
-            if (band == 2)
-            {
-                bw_label(8, 0, "K1 MIN SEC", t.wait_min);
-                bw_label(128, 0, "K2 MAX SEC", t.wait_max);
-            }
-            if (band == 3)
-            {
-                cv_text(8, 0, &FONT_XS, "K3 MODE", C_GRAY);
-                cv_text(8, 17, &FONT_B, t.manual ? "TIMED" : "AUTO", C_WHITE);
-                bw_label(128, 0, "K4 VARIATION", t.variation);
-            }
-            if (band == 4)
-            {
-                cv_text(8, 0, &FONT_XS, "REC CAST / RETRIEVE / LAND", C_WHITE);
-                cv_text(8, 21, &FONT_XS, "TIMED BITE: 2 SECOND WINDOW", C_GRAY);
-            }
+            lasty = y0 + h - 4 - (s->deg - lo + 1) * rowh;
+            lastx = 6 + (int32_t)i * cw;
+            R(lastx, lasty, cw - 1, rowh > 4 ? 4 : rowh, bw_color(k));
         }
-        else if (bw_ui.page == BW_STATS)
+        else if (s->gate == BW_GATE_TIE && lastx >= 0)
+            R(6 + (int32_t)i * cw - 1, lasty, cw, rowh > 4 ? 4 : rowh, bw_color(k));
+    }
+    if (bw.playing)
+    {
+        unsigned st = (bw.step[k] + th->len - 1) % th->len;
+        R(6 + (int32_t)st * cw, y0, cw, 2, C_YEL);
+    }
+}
+static void bw_draw_popup(void)
+{
+    const bw_event *ev = &bw_ui.popup;
+    char t[24];
+    R(8, 104, 224, 88, C_PANEL);
+    R(8, 104, 224, 2, ev->rare ? C_GOLD : bw_color(ev->track));
+    if (ev->result == BW_FIGHT_LANDED)
+    {
+        const bw_sheet *pt = &bw_art_portraits[ev->species % BW_SPECIES];
+        if (pt->px)
+            bw_sheet_draw(pt, ev->species % 4u, 14, 112, 0, 0);
+        else
+            bw_draw_fish(20, 120, ev->species, 0, 0);
+        T(80, 110, &FONT_XS, ev->rare ? "RARE CATCH!" : "CAUGHT", ev->rare ? C_GOLD : C_MUTE);
+        T(80, 126, &FONT_B, bw_species_names[ev->species], C_TXT);
+        t[0] = 0;
+        bw_length_text(t, ev->mm);
+        T(80, 146, &FONT_B, t, C_YEL);
+        t[0] = 0;
+        bw_weight_text(t, ev->g);
+        T(160, 146, &FONT_B, t, C_YEL);
+        T(80, 168, &FONT_XS, ev->key_change ? "NEW BEST: KEY CHANGE" : ev->best ? "NEW PERSONAL BEST" : "THEME CHANGED",
+          ev->best ? C_PINK : C_MUTE);
+    }
+    else
+    {
+        T(20, 120, &FONT_B, ev->result == BW_FIGHT_SNAPPED ? "LINE SNAPPED" : "THREW THE HOOK", C_PINK);
+        T(20, 146, &FONT_XS, ev->rare ? "IT WAS SOMETHING BIG..." : "IT GOT AWAY", C_MUTE);
+    }
+}
+static void bw_draw_page(uint32_t ms)
+{
+    char t[24], u[24];
+    unsigned k = bw_ui.track, sub = bw_ui.sub[bw_ui.page];
+    const bw_track *tr = &bw.track[k];
+    const bw_song *s = &bw.song;
+    const bw_operator *o = &tr->patch.op[bw_ui.op];
+    uint16_t c = bw_color(k);
+    switch (bw_ui.page)
+    {
+    case BW_RIVER:
+    {
+        const bw_sheet *bg = &bw_art_river[0];
+        if (bg->px)
+            bw_sheet_draw(bg, bw_weather(&bw) % 3u, 0, 0, 0, 0);
+        for (unsigned i = 0; i < 4; i++)
         {
-            unsigned k = band - 1;
-            cv_text(7, 0, &FONT_XS, bw_names[k], bw_color(k));
-            bw_label(7, 16, "COUNT", (int)catches[k]);
-            bw_label(85, 16, "BEST MM", (int)best[k]);
-            bw_label(164, 16, "LAST MM", (int)last[k]);
+            int32_t y = 48 + (int32_t)i * 48;
+            if (i == k)
+                R(0, y, 240, 48, C_PANEL);
+            for (int32_t x = 0; x < 240; x += 12)
+                R(x + (int32_t)((ms / 200u + i * 3) % 12u), y + 45, 6, 1, RGB(20, 50, 70));
+            unsigned sp = bw_fish_state(&bw, i) == BW_FISH_FIGHT ? bw.fish[i] : i;
+            bw_draw_fish(6, y + 12, sp, ms / 250u % 4u, i != k);
+            T(62, y + 3, &FONT_XS, bw_species_names[i], i == k ? C_TXT : C_MUTE);
+            T(62, y + 22, &FONT_XS, bw.track[i].mute ? "MUTED" : bw_state_text(i), bw_color(i));
+            if (bw_fish_state(&bw, i) != BW_FISH_IDLE)
+                bw_draw_bobber(222, y + 20, i, ms);
+            bw_bar(176, y + 8, 40, bw.track[i].volume, 100, bw_color(i));
         }
-        else if (bw_ui.page == BW_GLOBAL)
+        break;
+    }
+    case BW_FISHING:
+    {
+        int st = bw_fish_state(&bw, k);
+        if (st == BW_FISH_FIGHT)
         {
-            if (band == 1)
-            {
-                bw_label(8, 0, "K1 TEMPO", (int)tempo);
-                bw_label(128, 0, "K2 ROOT MIDI", t.root);
-            }
-            if (band == 2)
-            {
-                bw_label(8, 0, "K3 VOLUME", t.volume);
-                bw_label(128, 0, "MISSED BITES", (int)missed);
-            }
-            if (band == 3)
-                cv_text(8, 8, &FONT_XS, "ALGO: TRACK  /  SEL: STATS", C_WHITE);
-            if (band == 4)
-                cv_text(8, 8, &FONT_XS, "SAVE: SESSION + CATCH LOG", C_GRAY);
+            float tn = bw.fight_tension[k], d = bw.fight_dist[k];
+            bw_draw_fish(20, 60 + (int32_t)(ms / 80u % 3u), bw.fish[k], ms / 120u % 4u, 0);
+            T(80, 54, &FONT_B, bw.fish_rare[k] ? "SOMETHING BIG!" : "FISH ON!", bw.fish_rare[k] ? C_GOLD : C_YEL);
+            T(80, 74, &FONT_XS, bw.fight_run[k] > 0.0f ? "IT'S RUNNING - EASE OFF" : "REEL: SELECT OR K1",
+              bw.fight_run[k] > 0.0f ? C_PINK : C_MUTE);
+            T(8, 104, &FONT_XS, "LINE TENSION", C_MUTE);
+            R(8, 124, 224, 10, C_BAR);
+            R(8, 124, (int32_t)(224.0f * fm_clampf(tn / 100.0f, 0, 1)), 10,
+              tn > 80 ? RGB(240, 70, 60) : tn > 55 ? C_YEL : RGB(110, 200, 140));
+            T(8, 146, &FONT_XS, "DISTANCE", C_MUTE);
+            R(8, 166, 224, 10, C_BAR);
+            R(8, 166, (int32_t)(224.0f * fm_clampf(d / fm_maxf(bw.fight_max[k], 1.0f), 0, 1)), 10, c);
+            T(8, 196, &FONT_XS, "TOO TIGHT SNAPS THE LINE", C_MUTE);
+            T(8, 214, &FONT_XS, "TOO SLACK THROWS THE HOOK", C_MUTE);
+            break;
+        }
+        int32_t depth_y = 52 + (int32_t)tr->depth * 9;
+        R(0, 48, 240, 44, RGB(10, 30, 40));
+        R(120, 48, 1, depth_y - 48, C_MUTE);
+        if (st != BW_FISH_IDLE)
+            bw_draw_bobber(119, 52, k, ms);
+        bw_draw_fish(150, depth_y, k, ms / 250u % 4u, st == BW_FISH_IDLE);
+        T(8, 56, &FONT_XS, bw_depth_names[tr->depth], C_TXT);
+        T(8, 72, &FONT_XS, "PRESETS: DEPTH", C_MUTE);
+        int32_t left = (int32_t)(bw.deadline[k] - bw.clock);
+        t[0] = 0;
+        if (st == BW_FISH_WAIT)
+        {
+            bw_num(t, left > 0 ? left / (int32_t)BW_RATE : 0);
+            bw_cat(t, sizeof t, " S");
+        }
+        T(8, 96, &FONT_B, st == BW_FISH_BITE ? "BITE!" : st == BW_FISH_WAIT ? "WAITING" : "NO LINE", C_TXT);
+        TR(232, 96, &FONT_B, t, C_YEL);
+        bw_param_n(6, 120, "K1 MIN WAIT S", tr->wait_min, 600, c);
+        bw_param_n(122, 120, "K2 MAX WAIT S", tr->wait_max, 600, c);
+        bw_param(6, 156, "K3 MODE", tr->manual ? "TIMED" : "AUTO", 0, 0, c);
+        bw_param(122, 156, "K4 BAIT", bw_bait_names[tr->bait], 0, 0, c);
+        T(6, 196, &FONT_XS, "WEATHER", C_MUTE);
+        T(70, 196, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_YEL);
+        T(6, 214, &FONT_XS, "REC: CAST / PULL IN / SET THE HOOK", C_MUTE);
+        break;
+    }
+    case BW_THEME:
+        bw_draw_theme(50, 92, k);
+        if (sub == 0)
+        {
+            bw_param_n(6, 150, "K1 LENGTH", tr->cur.len, 32, c);
+            bw_param_n(122, 150, "K2 DENSITY %", tr->density, 100, c);
+            bw_param_n(6, 190, "K3 OCTAVE", tr->octave, 0, c);
+            T(122, 190, &FONT_XS, "PRESETS: ACTIONS", C_MUTE);
         }
         else
         {
-            if (band == 1)
+            T(6, 148, &FONT_XS, "TURN RIGHT TO DO:", C_MUTE);
+            T(6, 166, &FONT_XS, tr->has_prev ? "K1 RELEASE LAST CATCH" : "K1 (NOTHING TO RELEASE)", C_TXT);
+            T(6, 184, &FONT_XS, "K2 BACK TO HOME THEME", C_TXT);
+            T(6, 202, &FONT_XS, "K3 MAKE THIS THE HOME", C_TXT);
+            T(6, 220, &FONT_XS, bw.rec_arm[k] ? "K4 RECORDING... (LEFT: STOP)" : "K4 RECORD FROM KEYS",
+              bw.rec_arm[k] ? C_PINK : C_TXT);
+        }
+        break;
+    case BW_LOG:
+        if (sub == 0)
+            for (unsigned i = 0; i < 4; i++)
             {
-                bw_label(8, 0, "SELECT OPERATOR", (int)op + 1);
-                bw_label(150, 0, "PAGE", bw_ui.edit_page + 1);
-            }
-            if (bw_ui.page == BW_ENV)
-            {
-                if (band == 2)
+                int32_t y = 48 + (int32_t)i * 48;
+                for (unsigned rare = 0; rare < 2; rare++)
                 {
-                    bw_label(8, 0, "K1 ATTACK MS", o->attack);
-                    bw_label(128, 0, "K2 DECAY MS", o->decay);
-                }
-                if (band == 3)
-                {
-                    bw_label(8, 0, "K3 SUSTAIN %", o->sustain);
-                    bw_label(128, 0, "K4 RELEASE MS", o->release);
-                }
-            }
-            else if (bw_ui.edit_page == 0)
-            {
-                if (band == 2)
-                {
-                    bw_label(8, 0, "K1 RATIO /100", o->ratio);
-                    bw_label(128, 0, "K2 LEVEL %", o->level);
-                }
-                if (band == 3)
-                {
-                    bw_label(8, 0, "K3 FEEDBACK", o->feedback);
-                    bw_label(128, 0, "K4 ALGORITHM", t.algorithm + 1);
+                    const bw_species_log *l = &bw.log.s[i + rare * 4];
+                    int32_t yy = y + 2 + (int32_t)rare * 22;
+                    T(6, yy, &FONT_XS, bw_species_names[i + rare * 4], rare ? C_GOLD : bw_color(i));
+                    bw_num(t, (int)l->count);
+                    TR(150, yy, &FONT_XS, t, C_TXT);
+                    t[0] = 0;
+                    if (l->count)
+                        bw_length_text(t, l->best_mm);
+                    else
+                        bw_cat(t, sizeof t, "-");
+                    TR(234, yy, &FONT_XS, t, C_YEL);
                 }
             }
-            else if (bw_ui.edit_page == 1)
+        else
+        {
+            static const char *const names[4] = {"MISSED BITES", "SNAPPED LINES", "THROWN HOOKS", "RELEASED"};
+            const uint32_t v[4] = {bw.log.missed, bw.log.snapped, bw.log.thrown, bw.log.released};
+            for (unsigned i = 0; i < 4; i++)
             {
-                if (band == 2)
-                {
-                    bw_label(8, 0, "K1 FIXED MODE", o->fixed);
-                    bw_label(128, 0, "K2 FIXED HZ", o->hz);
-                }
-                if (band == 3)
-                {
-                    bw_label(8, 0, "K3 VELOCITY %", o->velocity);
-                    bw_label(128, 0, "K4 OUTPUT %", t.carrier[op]);
-                }
+                T(6, 56 + (int32_t)i * 40, &FONT_XS, names[i], C_MUTE);
+                bw_num(t, (int)v[i]);
+                TR(234, 52 + (int32_t)i * 40, &FONT_B, t, C_TXT);
             }
+            T(6, 216, &FONT_XS, "BEST SIZES ON PAGE 1 (PRESETS)", C_MUTE);
+        }
+        break;
+    case BW_SCALE:
+    {
+        static const char *const roman[7] = {"i", "ii", "iii", "iv", "v", "vi", "vii"};
+        bw_param(6, 54, "K1 KEY", bw_key_names[s->key], s->key, 11, C_YEL);
+        bw_param(122, 54, "K2 SCALE", bw_scale_names[s->scale], s->scale, BW_SCALES - 1, C_YEL);
+        bw_param(6, 100, "K3 CHORDS", bw_progression_names[s->progression], 0, 0, C_YEL);
+        bw_param_n(122, 100, "K4 SWING %", s->swing, 60, C_YEL);
+        T(6, 150, &FONT_XS, "NOW ON CHORD", C_MUTE);
+        int r = bw_chord_root(&bw);
+        T(110, 146, &FONT_B, roman[((r % 7) + 7) % 7], C_PINK);
+        T(6, 180, &FONT_XS, "ALL FOUR FISH FOLLOW THE KEY,", C_MUTE);
+        T(6, 198, &FONT_XS, "THE SCALE AND THE CHORDS", C_MUTE);
+        break;
+    }
+    case BW_EDIT:
+    {
+        bw_num(t, (int)bw_ui.op + 1);
+        T(6, 52, &FONT_XS, "SELECT: OPERATOR", C_MUTE);
+        TR(110, 50, &FONT_B, t, C_TXT);
+        u[0] = 0;
+        bw_cat(u, sizeof u, "PAGE ");
+        bw_num(u + 5, (int)sub + 1);
+        bw_cat(u, sizeof u, "/4");
+        TR(234, 52, &FONT_XS, u, C_MUTE);
+        for (unsigned i = 0; i < 6; i++) /* the six operators' levels; carriers bright */
+        {
+            int32_t x = 6 + (int32_t)i * 38;
+            R(x, 72, 34, 14, i == bw_ui.op ? C_PANEL : C_BG);
+            R(x + 2, 82, (int32_t)tr->patch.op[i].level * 30 / 100, 3, tr->patch.carrier[i] ? c : C_MUTE);
+        }
+        if (sub == 0)
+        {
+            bw_param_n(6, 100, "K1 RATIO /100", o->ratio, 1600, c);
+            bw_param_n(122, 100, "K2 LEVEL", o->level, 100, c);
+            bw_param_n(6, 146, "K3 FEEDBACK", o->feedback, 100, c);
+            bw_param_n(122, 146, "K4 ALGORITHM", tr->patch.algorithm + 1, 8, c);
+        }
+        else if (sub == 1)
+        {
+            bw_param(6, 100, "K1 FIXED", o->fixed ? "ON" : "OFF", o->fixed, 1, c);
+            bw_param_n(122, 100, "K2 FIXED HZ", o->hz, 16000, c);
+            bw_param_n(6, 146, "K3 VELOCITY", o->velocity, 100, c);
+            bw_param_n(122, 146, "K4 OUTPUT", tr->patch.carrier[bw_ui.op], 100, c);
+        }
+        else if (sub == 2)
+        {
+            bw_param_n(6, 100, "K1 FROM OP", bw_ui.route_source + 1, 6, c);
+            bw_param_n(122, 100, "K2 INTO OP", bw_ui.route_dest + 1, 6, c);
+            bw_param_n(6, 146, "K3 AMOUNT", tr->patch.route[bw_ui.route_source][bw_ui.route_dest], 100, c);
+            bw_param_n(122, 146, "K4 FROM OUT", tr->patch.carrier[bw_ui.route_source], 100, c);
+        }
+        else
+        {
+            u[0] = 0;
+            bw_cat(u, sizeof u, bw_ui.patch_pick < 4 ? "F" : "U");
+            bw_num(u + 1, bw_ui.patch_pick % 4 + 1);
+            bw_cat(u, sizeof u, " ");
+            bw_cat(u, sizeof u, bw_ui.patch_pick < 4 ? bw_patch_name(k, bw_ui.patch_pick) : "USER");
+            bw_param(6, 100, "K1 PATCH", u, bw_ui.patch_pick, 7, c);
+            T(122, 100, &FONT_XS, "K2 LOAD (RIGHT)", C_TXT);
+            T(122, 122, &FONT_XS, "K3 STORE (RIGHT)", bw_ui.patch_pick >= 4 ? C_TXT : C_MUTE);
+            T(6, 150, &FONT_XS, "F1-F4 FACTORY, U1-U4 YOURS", C_MUTE);
+        }
+        T(6, 196, &FONT_XS, "PRESETS: PAGE  WHITE KEYS: PLAY", C_MUTE);
+        T(6, 214, &FONT_XS, "BLACK KEYS: FM MACROS", C_MUTE);
+        break;
+    }
+    case BW_ENV:
+    {
+        bw_num(t, (int)bw_ui.op + 1);
+        T(6, 52, &FONT_XS, "SELECT: OPERATOR", C_MUTE);
+        TR(110, 50, &FONT_B, t, C_TXT);
+        /* the envelope's shape */
+        int32_t x0 = 6, y0 = 120, w = 228, hgt = 44;
+        float total = (float)o->attack + (float)o->decay + 400.0f + (float)o->release;
+        int32_t xa = x0 + (int32_t)(w * (float)o->attack / total), xd = xa + (int32_t)(w * (float)o->decay / total);
+        int32_t xs = xd + (int32_t)(w * 400.0f / total), ys = y0 - hgt * o->sustain / 100;
+        R(x0, 72, w, hgt + 6, C_PANEL);
+        for (int32_t x = x0; x < x0 + w; x++)
+        {
+            int32_t y = x < xa ? y0 - hgt * (x - x0) / (xa - x0 + 1)
+                        : x < xd ? y0 - hgt + (hgt - (y0 - ys)) * (x - xa) / (xd - xa + 1)
+                        : x < xs ? ys
+                                 : ys + (y0 - ys) * (x - xs) / (x0 + w - xs + 1);
+            R(x, y, 1, 2, c);
+        }
+        bw_param_n(6, 130, "K1 ATTACK MS", o->attack, 10000, c);
+        bw_param_n(122, 130, "K2 DECAY MS", o->decay, 10000, c);
+        bw_param_n(6, 176, "K3 SUSTAIN %", o->sustain, 100, c);
+        bw_param_n(122, 176, "K4 RELEASE MS", o->release, 10000, c);
+        break;
+    }
+    case BW_LFO:
+    {
+        R(6, 52, 228, 44, C_PANEL);
+        for (int32_t x = 0; x < 228; x++)
+        {
+            float ph = (float)x / 228.0f, v;
+            switch (tr->lfo_shape)
+            {
+            case BW_LFO_TRI:
+                v = ph < 0.5f ? 4.0f * ph - 1.0f : 3.0f - 4.0f * ph;
+                break;
+            case BW_LFO_SQUARE:
+                v = ph < 0.5f ? 1.0f : -1.0f;
+                break;
+            case BW_LFO_RANDOM:
+                v = (float)(((x / 19) * 2654435761u) >> 28) / 7.5f - 1.0f;
+                break;
+            default:
+                v = fm_sinf(ph * FM_TWO_PI);
+                break;
+            }
+            R(6 + x, 74 - (int32_t)(v * 18.0f * (float)tr->lfo_depth / 100.0f), 1, 2, c);
+        }
+        R(6 + (int32_t)(bw.lfo_phase[k] * 227.0f), 52, 2, 44, C_YEL);
+        bw_param_n(6, 108, "K1 RATE", tr->lfo_rate, 100, c);
+        bw_param_n(122, 108, "K2 DEPTH", tr->lfo_depth, 100, c);
+        bw_param(6, 154, "K3 TARGET", bw_lfo_target_names[tr->lfo_target], 0, 0, c);
+        bw_param(122, 154, "K4 SHAPE", bw_lfo_shape_names[tr->lfo_shape], 0, 0, c);
+        T(6, 204, &FONT_XS, "EACH FISH HAS ITS OWN LFO", C_MUTE);
+        break;
+    }
+    case BW_FX:
+    {
+        static const char *const titles[4] = {"SENDS: THIS FISH", "REVERB + ECHO TIME", "ECHO + CHORUS", "MASTER"};
+        static const char *const lab[4][4] = {{"K1 REVERB", "K2 ECHO", "K3 CHORUS", "K4 DRIVE"},
+                                              {"K1 SIZE", "K2 TONE", "K3 LEVEL", "K4 ECHO TIME"},
+                                              {"K1 FEEDBACK", "K2 ECHO LEVEL", "K3 CHORUS RATE", "K4 DEPTH"},
+                                              {"K1 TONE", "K2 WIDTH", "", ""}};
+        static const char *const dtime[6] = {"1/16", "1/8T", "1/8", "1/8.", "1/4", "1/4."};
+        const uint8_t v[4][4] = {{tr->send_rev, tr->send_dly, tr->send_cho, tr->drive},
+                                 {s->rev_size, s->rev_tone, s->rev_level, s->dly_time},
+                                 {s->dly_feedback, s->dly_level, s->cho_rate, s->cho_depth},
+                                 {s->tone, s->width, 0, 0}};
+        T(6, 52, &FONT_XS, titles[sub], sub ? C_YEL : c);
+        u[0] = 0;
+        bw_cat(u, sizeof u, "PAGE ");
+        bw_num(u + 5, (int)sub + 1);
+        bw_cat(u, sizeof u, "/4");
+        TR(234, 52, &FONT_XS, u, C_MUTE);
+        for (unsigned i = 0; i < 4; i++)
+        {
+            if (!lab[sub][i][0])
+                continue;
+            int32_t y = 76 + (int32_t)i * 38;
+            T(6, y, &FONT_XS, lab[sub][i], C_MUTE);
+            if (sub == 1 && i == 3)
+                bw_text_copy(t, dtime[v[1][3] * 6u / 101u], sizeof t);
             else
-            {
-                if (band == 2)
-                {
-                    bw_label(8, 0, "K1 SOURCE OP", bw_ui.route_source + 1);
-                    bw_label(128, 0, "K2 DEST OP", bw_ui.route_dest + 1);
-                }
-                if (band == 3)
-                {
-                    bw_label(8, 0, "K3 MODULATION", t.route[bw_ui.route_source][bw_ui.route_dest]);
-                    bw_label(128, 0, "K4 SOURCE OUT", t.carrier[bw_ui.route_source]);
-                }
-            }
-            if (band == 4)
-            {
-                cv_text(8, 0, &FONT_XS, "PRESETS: EDIT PAGE 1-3", C_GRAY);
-                cv_text(8, 20, &FONT_XS, "STOP + KEYS: AUDITION PATCH", C_WHITE);
-            }
+                bw_num(t, v[sub][i]);
+            TR(234, y - 2, &FONT_B, t, C_TXT);
+            bw_bar(6, y + 22, 228, v[sub][i], 100, sub ? C_PINK : c);
+        }
+        break;
+    }
+    case BW_ARP:
+    {
+        static const char *const st[3] = {"OFF", "ON", "LATCH"};
+        T(6, 52, &FONT_XS, "ARP BUTTON: OFF / ON / LATCH", C_MUTE);
+        T(6, 70, &FONT_M, st[bw.arp], bw.arp ? C_PINK : C_MUTE);
+        bw_param(6, 108, "K1 MODE", bw_arp_mode_names[s->arp_mode], 0, 0, c);
+        bw_param(122, 108, "K2 RATE", bw_arp_rate_names[s->arp_rate], 0, 0, c);
+        bw_param_n(6, 154, "K3 OCTAVES", s->arp_octaves, 3, c);
+        bw_param_n(122, 154, "K4 GATE %", s->arp_gate, 100, c);
+        T(6, 204, &FONT_XS, "HOLD WHITE KEYS: THE FISH ARPEGGIATES", C_MUTE);
+        break;
+    }
+    case BW_GLOBAL:
+        if (sub == 0)
+        {
+            bw_param_n(6, 56, "K1 TEMPO", s->tempo, 240, C_YEL);
+            bw_param(122, 56, "K2 CLOCK", s->sync ? "MIDI" : "INTERNAL", 0, 0, C_YEL);
+            bw_param(6, 102, "K3 WEATHER", bw_weather_names[s->weather], 0, 0, C_YEL);
+            bw_param(122, 102, "K4 BEST = KEY", s->pb_event ? "ON" : "OFF", 0, 0, C_YEL);
+            T(6, 150, &FONT_XS, "NOW", C_MUTE);
+            T(50, 150, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_TXT);
+            /* the audio's own load (percent of its time) and the times it fell behind */
+            u[0] = 0;
+            bw_cat(u, sizeof u, "AUDIO LOAD ");
+            bw_num(u + 11, (int)plat_cpu_pct());
+            bw_cat(u, sizeof u, "%  XRUNS ");
+            t[0] = 0;
+            bw_num(t, (int)plat_xruns());
+            bw_cat(u, sizeof u, t);
+            T(6, 176, &FONT_XS, u, plat_cpu_pct() > 85 ? C_PINK : C_MUTE);
+        }
+        else if (sub == 1)
+        {
+            bw_param(6, 56, "K1 UNITS", bw_pref.units ? "INCH / LB" : "CM / KG", 0, 0, C_YEL);
+            bw_param(122, 56, "K2 FISH-ON CLIP", bw_pref.clip_on ? (bw_clip_present() ? "ON" : "ON (NONE)") : "OFF", 0, 0,
+                     C_YEL);
+            bw_param_n(6, 102, "K3 CLIP LEVEL", bw_pref.clip_level, 100, C_YEL);
+            bw_param(122, 102, "K4 AUTOSAVE", bw_pref.autosave ? "ON" : "OFF", 0, 0, C_YEL);
+        }
+        else
+        {
+            bw_num(t, bw_ui.slot_pick + 1);
+            bw_param(6, 56, "K1 SLOT", t, bw_ui.slot_pick, 3, C_YEL);
+            T(122, 56, &FONT_XS, "K2 LOAD (RIGHT)", C_TXT);
+            T(122, 76, &FONT_XS, "K3 SAVE (RIGHT)", C_TXT);
+            bw_param(6, 102, "K4 MIDI OUT", bw_pref.midi_out ? "CH 1-4" : "OFF", 0, 0, C_YEL);
+            bw_num(t, bw_pref.slot + 1);
+            T(6, 150, &FONT_XS, "THIS SESSION IS SLOT", C_MUTE);
+            T(150, 146, &FONT_B, t, C_TXT);
+        }
+        u[0] = 0;
+        bw_cat(u, sizeof u, "PAGE ");
+        bw_num(u + 5, (int)sub + 1);
+        bw_cat(u, sizeof u, "/3  (PRESETS)");
+        T(6, 216, &FONT_XS, u, C_MUTE);
+        break;
+    default:
+    {
+        static const char *const help[2][9] = {
+            {"HOME RIVER / CATCH LOG", "SEQ FISHING / THEME", "REC CAST, PULL IN, SET HOOK", "PLAY START / STOP",
+             "ALGORITHM CHOOSE THE FISH", "SELECT PAGES, REEL IN", "PRESETS SUB-PAGE, DEPTH", "SAVE THIS SLOT",
+             "MASTER VOLUME"},
+            {"WHITE KEYS PLAY IN THE SCALE", "BLACK KEYS: BRIGHT DARK GROWL", "METAL DIVE RISE STUTTER", "HALF CUT OCTAVE THROW",
+             "OCT- / OCT+ KEYBOARD OCTAVE", "SCL KEY, SCALE, CHORDS", "FX EFFECTS  LFO  ARP", "EDIT FM  ENV ENVELOPES",
+             "GLO TEMPO, PREFS, SLOTS"}};
+        for (unsigned i = 0; i < 9; i++)
+            T(6, 50 + (int32_t)i * 21, &FONT_XS, help[sub][i], i % 2 ? C_TXT : C_MUTE);
+        break;
+    }
+    }
+}
+static void bw_draw(void)
+{
+    uint32_t ms = plat_ms();
+    static char right[24];
+    uint32_t lock = plat_lock();
+    if (bw.event.seq != bw_ui.event_seq)
+    {
+        bw_ui.event_seq = bw.event.seq;
+        bw_ui.popup = bw.event;
+        bw_ui.popup_until = ms + 3500u;
+        bw_ui.dirty = 1;
+    }
+    int popup = (int32_t)(bw_ui.popup_until - ms) > 0 && bw_fish_state(&bw, bw_ui.track) != BW_FISH_FIGHT;
+    right[0] = 0;
+    bw_text_copy(right, bw.playing ? "PLAYING" : "STOPPED", sizeof right);
+    for (unsigned band = 0; band < 5; band++)
+    {
+        bw_oy = (int32_t)band * 48;
+        cv_begin(240, 48, C_BG);
+        if (band == 0)
+            bw_header(bw_pages[bw_ui.page], bw_ui.page == BW_FX || bw_ui.page == BW_SCALE || bw_ui.page == BW_GLOBAL
+                                                ? C_YEL
+                                                : bw_color(bw_ui.track),
+                      right);
+        else
+        {
+            bw_draw_page(ms);
+            if (popup)
+                bw_draw_popup();
         }
         lcd_blit(0, band * 48, 240, 48, cv_px);
     }
-    uint32_t leds = (playing ? 1u << B_PLAY : 0) | (bw_ui.dirty ? 1u << B_SAVE : 0) |
-                    (bites[bw_ui.track] ? 1u << B_REC : 0);
-    plat_leds(leds, playing ? 1u << step : 0);
-    bw_ui.last_draw = plat_ms();
+    /* lights: PLAY, SAVE while unsaved, REC at a bite, ARP while on; the white keys walk this fish's steps; held
+     * black keys lit */
+    static const uint8_t white[16] = PLAT_WHITE_KEYS;
+    unsigned k = bw_ui.track;
+    uint32_t leds = (bw.playing ? 1u << B_PLAY : 0) | (bw_ui.dirty ? 1u << B_SAVE : 0) |
+                    (bw_fish_state(&bw, k) == BW_FISH_BITE ? 1u << B_REC : 0) | (bw.arp ? 1u << B_ARP : 0);
+    uint32_t keyleds = bw_ui.keys;
+    if (bw.playing)
+        keyleds |= 1u << white[(bw.step[k] + bw.track[k].cur.len - 1) % bw.track[k].cur.len % 16];
+    plat_unlock(lock);
+    plat_leds(leds, keyleds);
+    bw_ui.last_draw = ms;
     bw_ui.draw = 0;
 }
 void app_ui_init(void)
 {
-    bw_ui.route_source = 1;
     bw_ui.draw = 1;
     bw_draw();
 }
@@ -588,7 +1415,7 @@ void app_input_only(void)
 void app_frame(void)
 {
     bw_input();
-    if (bw_ui.draw || plat_ms() - bw_ui.last_draw >= 100)
+    if (bw_ui.draw || plat_ms() - bw_ui.last_draw >= 80)
         bw_draw();
     if (ann_on() && ann_where())
         ann_say(bw_pages[bw_ui.page], 0, ANN_NOW);
@@ -598,28 +1425,61 @@ void app_frame(void)
 int app_expect(const char *what, int *got)
 {
     unsigned k = bw_ui.track;
+    const bw_track *t = &bw.track[k];
+    unsigned notes = 0, active = 0;
+    for (unsigned i = 0; i < t->cur.len; i++)
+        notes += t->cur.s[i].gate == BW_GATE_NOTE;
+    for (unsigned i = 0; i < BW_VOICES; i++)
+        active += bw.voice[i].active;
     const struct
     {
         const char *name;
         int value;
     } checks[] = {{"track", (int)k},
                   {"page", bw_ui.page},
+                  {"sub", bw_ui.sub[bw_ui.page]},
                   {"playing", bw.playing},
-                  {"hooked", bw.hooked[k]},
-                  {"bite", bw.bite[k]},
-                  {"catches", (int)bw.track[k].catches},
-                  {"best_mm", (int)bw.track[k].best_mm},
-                  {"last_mm", (int)bw.track[k].last_mm},
-                  {"manual", bw.track[k].manual},
-                  {"missed", (int)bw.missed[k]},
-                  {"wait_min", bw.track[k].wait_min},
-                  {"wait_max", bw.track[k].wait_max},
-                  {"level", bw.track[k].op[bw_ui.op].level},
+                  {"state", bw_fish_state(&bw, k)},
+                  {"hooked", bw_fish_state(&bw, k) != BW_FISH_IDLE},
+                  {"bite", bw_fish_state(&bw, k) == BW_FISH_BITE},
+                  {"fight", bw_fish_state(&bw, k) == BW_FISH_FIGHT},
+                  {"catches", (int)(bw.log.s[k].count + bw.log.s[k + 4].count)},
+                  {"rare", (int)bw.log.s[k + 4].count},
+                  {"best_mm", (int)bw.log.s[k].best_mm},
+                  {"last_mm", (int)bw.log.s[k].last_mm},
+                  {"missed", (int)bw.log.missed},
+                  {"snapped", (int)bw.log.snapped},
+                  {"thrown", (int)bw.log.thrown},
+                  {"released", (int)bw.log.released},
+                  {"manual", t->manual},
+                  {"wait_min", t->wait_min},
+                  {"wait_max", t->wait_max},
+                  {"bait", t->bait},
+                  {"depth", t->depth},
+                  {"level", t->patch.op[bw_ui.op].level},
+                  {"algorithm", t->patch.algorithm},
+                  {"theme_len", t->cur.len},
+                  {"theme_notes", (int)notes},
+                  {"has_prev", t->has_prev},
+                  {"tempo", bw.song.tempo},
+                  {"key", bw.song.key},
+                  {"scale", bw.song.scale},
+                  {"swing", bw.song.swing},
+                  {"send_rev", t->send_rev},
+                  {"rev_level", bw.song.rev_level},
+                  {"lfo_depth", t->lfo_depth},
+                  {"arp", bw.arp},
+                  {"macros", (int)bw.macros[k]},
+                  {"voices", (int)active},
+                  {"slot", bw_pref.slot},
+                  {"units", bw_pref.units},
                   {"dirty", bw_ui.dirty},
-                  {"valid", bw_track_valid(&bw.track[k])},
+                  {"valid", bw_track_valid(t)},
                   {"operator", bw_ui.op},
                   {"clip", bw_fish_on.active},
-                  {"clip_present", bw_clip_present()}};
+                  {"clip_present", bw_clip_present()},
+                  {"clip_plays", (int)bw_clip_plays},
+                  {"rec_arm", bw.rec_arm[k]}};
     for (unsigned i = 0; i < sizeof checks / sizeof checks[0]; i++)
         if (strcmp(what, checks[i].name) == 0)
         {
@@ -628,5 +1488,4 @@ int app_expect(const char *what, int *got)
         }
     return 0;
 }
-
 #endif /* PLAT_HOST: simulator assertions are not part of the device image. */

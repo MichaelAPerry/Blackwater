@@ -17,56 +17,44 @@
   supports 0-600 seconds per track.
 - User explicitly chose BOTH fishing modes: automatic catches and variable wait
   followed by a timed player action.
-- User prefers a Jeremy Wade sample. Exact clip and integration behavior are not yet
-  specified and no audio asset has been supplied.
+- Jeremy Wade "fish on" clip: the user will supply it (under 12 seconds, possibly 1 s) and takes responsibility
+  for its use; it plays for **rare fish only**. No clip is in the repository yet.
+- 2026-11-04, the user approved **the whole expanded feature set** in `docs/FEATURE_PROPOSAL.md` (A1–A6, B1–B7,
+  C1–C6, D1–D4, E), plus **effects**, an audit of the keys with FM manipulation on keys left blank, and **rare fish
+  in each slot**: Crappie (bluegill slot), Peacock Bass (bass), Brook Trout (brown trout), Flathead Catfish
+  (catfish; the common catfish is therefore the channel catfish). Art is being made by the user from
+  `docs/ART_PROMPTS.md`. Effects should take MIKU-FM's screens as a reference for how they look, without copying
+  MIKU's style: BLACKWATER has its own palette and bobber-on-a-line bars.
+- A pull request to main waits until the firmware is "in a better state" (the user's call).
+- The user said "Go" to a public GitHub Pages deployment (the workflow runs once the branch is merged).
 - Simulator is the primary target. Publish only after separate approval.
 - User-facing firmware evaluation should be possible through an existing browser
   firmware emulator site like MIKU-FM1, before physical-device testing. The next
   development milestone is a real BLACKWATER `.fwsc` loading in that emulator,
   not further expansion based only on desktop screenshots/WAVs.
 
-## Implemented prototype functionality — not a completed product
+## Implemented (version 2, 2026-11-04) — awaiting the user's evaluation
 
-- Audited the original license-only repository and four requested reference projects;
-  upstream template/Ravel desktop baselines recorded in `docs/TECHNICAL_AUDIT.md`.
-- Pinned fm1-base and felucca-bsp as submodules; original upstream sources unchanged.
-- Original BLACKWATER C application: four mono six-operator voices, eight routing
-  presets, editable forward routes and carrier levels, ratios/fixed frequencies,
-  per-operator feedback, velocity sensitivity and ADSR.
-- Prototype hook toggle, transport, per-track automatic/timed timers, missed bites,
-  zero-delay boundary safety, and catch counters/synthetic sizes.
-- Generation is currently narrow: initial sixteen-step patterns use fixed arithmetic
-  formulas; catches randomly replace pitches/gates in selected steps. This is not yet
-  species-specific composition, phrase development, or a finished fishing minigame.
-- Functional FM/envelope/fishing/global/statistics screens and a first river view.
-- Versioned single-object session save/load using platform storage; error feedback.
-- Pinned host setup, reproducible tests, UBSan engine tests and actual application
-  simulator scenario. Real audio captured and selected screenshots inspected.
-- No imported Ravel/official application engines, replacement simulator, or sample DSP.
+See `docs/MANUAL.md` for the player's view and `docs/DEVELOPMENT.md` for the source map and tests.
 
-## Provisional engineering defaults, not final product decisions
+- Fish as band roles (lead, bass line, triplet arpeggios, drone) with per-fish step rates, registers, gate lengths,
+  theme generators, and sixteen designed factory patches (four per fish) plus user patches.
+- Key, eight scales, six chord progressions, swing; themes of 4–32 steps; catches develop the theme with
+  species- and bait-weighted moves sized by the catch; rare fish start a new section; personal bests change key.
+- Fishing: depth, bait, weather (auto cycle), species-realistic sizes and weights with trophies, eight species
+  with rare chances, AUTO catches, TIMED bite → hook set → reeling fight with tension, runs, snaps and thrown hooks;
+  keep/release, home theme, record from keys; a catch card; an eight-species catch log; cm/kg or in/lb.
+- Eight-voice pool, pan, drive, sends to chorus / tempo delay / reverb, master tone and width; per-fish LFOs; eleven
+  black-key FM macros; white keys play in the scale; arpeggiator with latch; MIDI out on channels 1–4 with clock,
+  MIDI clock in; four save slots, autosave while stopped, backup/restore; help page; audio-load readout.
+- Pixel-art importer for the user's sheets with drawn placeholders meanwhile; the clip player for rare fish.
 
-- 100 BPM, sixteen-step motifs with a minor-flavored scale, four contrasting starting
-  patches/registers; one voice per track. No DX7 compatibility claim.
-- Two-second manual landing window; waits rounded to sixteenth-note boundaries.
-- Size display in millimetres; generic 50-1000 mm synthetic catches until fish identities
-  and species-specific size distributions are chosen.
-- Functional first control layout documented in `docs/DEVELOPMENT.md`; generic pixel
-  silhouettes with the approved species labels. Species-specific artwork is not done.
-- Saved sessions restart stopped, with hooks retrieved; explicit SAVE rather than
-  autosave. Hardware flash-write interruption is not hidden.
+## Provisional engineering choices (the user may change any)
 
-## Proposed, awaiting approval or assets
-
-- Musical character and generative behavior per species remain to be designed with
-  the user. The current four generic patches are not approved species sound identities.
-- Jeremy Wade clip: needs the actual selected asset, provenance/distribution clearance,
-  and trigger behavior before a public bundle. No substitute voice has been added.
-- Track locking, catch keep/release/undo, additional scale controls, effects, LFO
-  modulation, and other performance features remain proposals. FX/LFO/ARP explicitly
-  report that they are unassigned rather than pretending to work.
-- Final minigame presentation, fishing animation, fish-size effects on music, exact
-  species patches/art and final UI behavior still require user direction/evaluation.
+- Tempo 96, A minor, i–VI–III–VII, swing 12 %; the two-second bite window; fight tuning; rare chance about 6 %
+  (more at the rare fish's depth and bait, at night, in storms); weather three minutes each; patch designs and
+  effect defaults; the help text; the reel on SELECT or K1.
+- A fish is heard while its line is in the water (kept from the prototype).
 
 ## Current tasks and known limitations
 
@@ -78,21 +66,16 @@
   headless Chromium on the assembled static site, including audio after cast + PLAY,
   screen changes for controls, and SAVE surviving a page reload. Evidence and limits:
   `docs/PACKAGE_EMULATION.md`.
-- Not yet done: a person playing and listening in a browser, public deployment (needs
-  authorization), physical FM-1 testing, device CPU deadline measurements beyond the
-  emulator's ISR share.
-- Desktop simulator and engine tests still pass; five package guard tests pass.
-- "Fish on" clip player built and tested (synthetic test tone only). No clip is supplied; the trigger moment
-  (bite / automatic catch) is provisional; on/off and level controls are not built. See `docs/DEVELOPMENT.md`.
-- GitHub Pages workflow (`.github/workflows/pages.yml`) authorized by the user ("Go"): builds the package,
-  gates on native/Node-Wasm/Chromium checks, deploys on pushes to main. Not yet run on GitHub.
-- Expanded features: `docs/FEATURE_PROPOSAL.md` (proposal, awaiting decisions). Art prompts:
-  `docs/ART_PROMPTS.md`.
+- Version 2 (all approved features): engine, host-simulator and art/clip tests pass; the device package builds
+  with every fm1-base check passing; in fm1-emu at the chip's 240 MHz, four fish playing with effects show 56%
+  audio load and no xruns (the firmware's own readout). Evidence: `docs/PACKAGE_EMULATION.md`.
+- Not yet done: a person playing and listening, physical FM-1 testing, the art sheets, the clip, the Pages
+  deployment (merge to main + Pages source "GitHub Actions"; the workflow has not run on GitHub yet).
+- The site emulates the chip at 240 MHz (the browser page's default is 100 MHz, too slow for four fish).
 - Upstream platform suite audit had reproducible `mirror`/`mirror-viewer` failures
   (56 other named groups passed). They remain upstream issues of unconfirmed cause.
 - See `docs/DEVELOPMENT.md` for exact current controls, tests, behavior and limitations.
-- Next: deploy (merge to main, Pages source = GitHub Actions), the user plays it, decisions on
-  `docs/FEATURE_PROPOSAL.md`, the art sheets and the clip.
+- Next: the user plays version 2 and tunes it; the art sheets and the clip go in; then the pull request.
 - MIKU-FM1 site-source audit identifies `joakimeriksson/fm1-emu` as its real-package
   emulator and Dinghy/Felucca as its firmware ancestry. fm1-emu's Rust/Wasm browser
   build is distinct from fm1-base's Emscripten application simulator. Retain the

@@ -69,16 +69,32 @@ FISH lines (accurate field marks matter more than detail):
   dark ragged stripe along the side; olive-green back, pale belly; spiny front dorsal fin.
 - **Brown Trout:** a brown trout: streamlined body, golden-brown sides, black spots and a few red spots with pale
   halos; square-ish tail with few spots; slightly hooked jaw.
-- **Catfish:** a channel catfish (or say "flathead catfish" for the bigger river-monster look): long smooth
-  scaleless slate-grey body, pale belly, long whisker barbels around the mouth, forked tail (flathead: broad flat
-  head, square tail, mottled brown).
+- **Catfish:** a channel catfish: long smooth scaleless slate-grey body with a few dark spots, pale belly, long
+  whisker barbels around the mouth, deeply forked tail.
 
 If frames don't line up, ask: "Redo it with the fish in exactly the same pixels in every cell; only the fins, tail
 and body curve may change."
 
-## 6. Catch portraits (the fishing and catch-log screens)
+## 2b–5b. Rare fish sprite sheets (one chat each)
 
-`portraits.png`
+Each fish slot has a rare cousin that turns up now and then (and plays the "fish on" clip). Same prompt as 2–5,
+same rules and 12 cells, with these FISH lines. Files: `crappie.png`, `peacock.png`, `brook.png`, `flathead.png`.
+Make them a touch more striking than the common fish: they are the trophies.
+
+- **Crappie** (rare in the bluegill slot): a black crappie: deep, flattened, silvery-olive body covered in dark
+  irregular speckles; large dorsal and anal fins with spotted rows; upturned mouth; big eye.
+- **Peacock Bass** (rare in the bass slot): a peacock bass: golden-yellow to olive body with three bold dark vertical
+  bars, a black "eye spot" ringed in gold on the tail, a red-orange eye and belly blush; humped forehead.
+- **Brook Trout** (rare in the trout slot): a brook trout: dark olive back with pale worm-like "vermiculation",
+  red spots with blue halos on the sides, orange-red belly, and white leading edges on the lower fins.
+- **Flathead Catfish** (rare in the catfish slot, the river monster): a huge flathead catfish: broad flat head,
+  wide mouth with the lower jaw jutting out, small eyes, mottled yellow-brown and olive skin, long barbels,
+  a square (not forked) tail, heavy and menacing.
+
+## 6. Catch portraits (the catch card)
+
+`portraits.png` (the four common fish), then the same prompt again for `portraits_rare.png` with cells 1 crappie,
+2 peacock bass, 3 brook trout, 4 flathead catfish (the field marks above).
 
 ```
 Using the palette and style of the attached image, make a PIXEL ART sheet of four freshwater fish portraits.
@@ -184,7 +200,6 @@ transparent background outside the circle. No text.
 
 ## Open choices for you
 
-- Catfish species: channel (forked tail, spotted) or flathead (the bigger "river monster" look). Prompt 5 notes
-  both; the art decides it.
+- Settled: the catfish slot is the **channel catfish**; the **flathead** is its rare cousin (prompt 5b).
 - Background count: one river or the three moods in prompt 7 (they could follow tempo, time played, or catches).
 - Whether a fish's sprite scales with its recorded size on the river screen.
