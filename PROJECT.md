@@ -20,6 +20,10 @@
 - User prefers a Jeremy Wade sample. Exact clip and integration behavior are not yet
   specified and no audio asset has been supplied.
 - Simulator is the primary target. Publish only after separate approval.
+- User-facing firmware evaluation should be possible through an existing browser
+  firmware emulator site like MIKU-FM1, before physical-device testing. The next
+  development milestone is a real BLACKWATER `.fwsc` loading in that emulator,
+  not further expansion based only on desktop screenshots/WAVs.
 
 ## Implemented prototype functionality — not a completed product
 
@@ -77,6 +81,11 @@
 - See `docs/DEVELOPMENT.md` for exact current controls, tests, behavior and limitations.
 - Next: resolve browser environment prerequisite, obtain the clip and musical-behavior decisions,
   evaluate the first playable behavior with the user, and implement approved changes.
+- MIKU-FM1 site-source audit identifies `joakimeriksson/fm1-emu` as its real-package
+  emulator and Dinghy/Felucca as its firmware ancestry. fm1-emu's Rust/Wasm browser
+  build is distinct from fm1-base's Emscripten application simulator. Retain the
+  approved fm1-base foundation while verifying package compatibility; do not migrate
+  to Dinghy just to copy the example site's appearance. See `docs/SIMULATOR_WORKFLOW.md`.
 
 ## Communication correction
 
