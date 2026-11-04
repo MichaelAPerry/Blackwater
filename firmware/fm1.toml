@@ -1,6 +1,6 @@
 name = "BLACKWATER"
-# Simulator-only placeholder. build.sh refuses device packaging until assigned.
-id_prefix = "FM-1_0"
+# Package identity, BLACKWATER's own: dev builds FM-1_7700, releases FM-1_77XXYYZZ.
+id_prefix = "FM-1_77"
 usb_manufacturer = "BLACKWATER"
 usb_product = "BLACKWATER FM-1"
 o2 = []

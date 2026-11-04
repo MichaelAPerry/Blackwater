@@ -15,7 +15,7 @@ p.add_argument('package', type=Path)
 p.add_argument('app', type=Path)
 p.add_argument('--emulator', type=Path, default=root/'platform/fm1-emu/target/release/fm1-emu')
 p.add_argument('--out', type=Path, default=root/'build/package-tests')
-p.add_argument('--timeout', type=int, default=300)
+p.add_argument('--timeout', type=int, default=900)  # native CLI runs ~25x slower than real time
 a = p.parse_args()
 metadata = json.loads(subprocess.check_output(
     ['node', str(root/'tools/package_metadata.mjs'), str(a.package.resolve()), str(a.app.resolve())], text=True))

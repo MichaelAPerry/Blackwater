@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 
 root = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser()
@@ -31,7 +32,8 @@ metadata['source_commit'] = subprocess.check_output(['git', '-C', str(root), 're
 metadata['source_dirty'] = bool(subprocess.check_output(['git', '-C', str(root), 'status', '--porcelain'], text=True).strip())
 metadata['emulator_commit'] = subprocess.check_output(
     ['git', '-C', str(root/'platform/fm1-emu'), 'rev-parse', 'HEAD'], text=True).strip()
-metadata['browser_interaction_tested'] = False
+metadata['browser_automated_chromium'] = False  # set below, once tools/browser_smoke.mjs passes on this site
+metadata['browser_tested_by_a_person'] = False
 metadata['physical_hardware_tested'] = False
 out.mkdir(parents=True, exist_ok=True)
 shutil.copytree(web, out/'emulator')
@@ -46,6 +48,9 @@ catalog = {'note':'BLACKWATER development firmware; not physically verified.', '
 (out/'emulator/firmwares.json').write_text(json.dumps(catalog, indent=2)+'\n')
 # The optional SMK-37 page is unrelated to this FM-1 application.
 shutil.rmtree(out/'emulator/smk37')
+# (the FM-1 page still asks for the SMK-37's catalog, to pair firmwares: an empty one)
+(out/'emulator/smk37').mkdir()
+(out/'emulator/smk37/firmwares.json').write_text('{"firmwares": []}\n')
 (out/'licenses').mkdir()
 for src,name in [('LICENSE','BLACKWATER-GPL.txt'),('platform/fm1-emu/LICENSE','fm1-emu-MIT.txt'),
                  ('platform/fm1-base/LICENSE','fm1-base-MPL.txt')]:
@@ -66,9 +71,11 @@ page = '''<!doctype html><html lang="en"><meta charset="utf-8">
 a{color:#93d6b3}iframe{width:100%;height:850px;border:1px solid #34534b}code{overflow-wrap:anywhere}</style>
 <h1>BLACKWATER</h1><p>Four fish. Four FM tracks. Development prototype.</p>
 <p>This is the actual FM-1 firmware package running in the existing fm1-emu emulator.
-It has passed native and Wasm smoke checks. Browser interaction and physical hardware still need validation.</p>
-<p>Start the emulator, press REC to cast a hook, then PLAY. ALGORITHM selects a track;
-SEQ opens fishing, EDIT opens FM editing, ENV opens envelopes, and SEL shows catches.</p>
+It passed native, Node-Wasm and automated Chromium checks before this page was built.
+It has not been tested on a physical FM-1.</p>
+<p>Press Start, then REC (R key) to cast a hook and PLAY (Space) to start. ALGORITHM (, .) selects a track;
+SEQ (0) opens fishing, EDIT (5) opens FM editing, ENV (3) opens envelopes, SEL (2) shows catches and
+SAVE (8) stores the session in this browser.</p>
 <p>Generative behavior is currently basic pitch/rhythm mutation. Artwork, musical identities and the Jeremy Wade clip remain unfinished.</p>
 <iframe src="emulator/?fw=blackwater&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
 <p><a href="emulator/?fw=blackwater">Open the full emulator</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
@@ -81,4 +88,14 @@ Emulator: <a href="https://github.com/joakimeriksson/fm1-emu">fm1-emu by Joakim 
 <a href="licenses/THIRD_PARTY.md">Credits and licenses</a>.</footer></html>'''
 (out/'index.html').write_text(page.replace('PACKAGE_HASH', html.escape(metadata['package_sha256'])))
 assert hashlib.sha256((out/'firmware/blackwater.fwsc').read_bytes()).hexdigest() == metadata['package_sha256']
+# Last gate: the assembled page itself, in Chromium. A failure leaves no site behind.
+evidence = Path(tempfile.mkdtemp(prefix='browser-', dir=root/'build'))
+try:
+    subprocess.run(['node', str(root/'tools/browser_smoke.mjs'), str(out), str(evidence)], check=True, timeout=600)
+except BaseException:
+    shutil.rmtree(out)
+    raise
+metadata['browser_automated_chromium'] = True
+metadata['browser_evidence'] = str(evidence.relative_to(root))
+(out/'build.json').write_text(json.dumps(metadata,indent=2)+'\n')
 print(out)

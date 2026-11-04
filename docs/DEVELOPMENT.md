@@ -22,7 +22,8 @@ controls, render callback and storage through fm1-base's host simulator. They do
 substitute an independent sound generator. Outputs are under ignored `build/tests`:
 PNG screens and actual rendered `audition.wav` / `fishing.wav`.
 
-`./build.sh` defaults to the host target. The upstream host takes a scenario and an
+`./build.sh --host` builds the desktop simulator; plain `./build.sh` builds the device
+package (see `docs/PACKAGE_EMULATION.md`). The upstream host takes a scenario and an
 **existing** output directory:
 
 ```sh
@@ -121,10 +122,11 @@ screenshots were visually inspected.
 
 Engine state is 1,580 bytes; each track record is 192 bytes. The sine/note tables add
 about 4.6 KiB; the 48-row RGB565 canvas is 23,040 bytes. These are source/host-derived
-figures, not linked device memory usage. No physical build, DSP deadline measurement,
-physical FM-1 verification, browser test, or deployment is claimed. Device packaging
-is guarded in `build.sh` until an unused firmware identity and the cross-toolchain
-are verified. Do not bypass this guard to flash the template identity.
+figures. The linked device build reports an 83,816-byte app image, RAM .data+.bss
+31,028 of 98,304 bytes and a 23,304-byte pool (see `docs/PACKAGE_EMULATION.md`, which
+also records the native, Node-Wasm and automated Chromium runs of that package). No
+physical FM-1 verification, DSP deadline measurement on hardware, or deployment is
+claimed, and nobody has yet played the browser build by hand.
 
 Known upstream USB-mirroring failures from the audit remain unresolved; upstream
 sources are unchanged. Species-specific art/sounds, species size distributions, the

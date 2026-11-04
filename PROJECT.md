@@ -70,23 +70,23 @@
 
 ## Current tasks and known limitations
 
-- Existing fm1-emu native and Rust/Wasm browser targets build with stable Rust
-  1.99.1. Official stock V15 passes the upstream Wasm baseline; this does not validate
-  BLACKWATER. Its real-package smoke checks/site assembler are prepared, not yet
-  successfully exercised with a BLACKWATER package.
-- Device cross-build blocked by official compiler/SDK access: `pkgman.jieliapp.com`
-  and `gitee.com` returned proxy HTTP 403. Required domains saved in environment
-  settings draft, preserving the earlier Emscripten domain addition.
-- Five package guard tests pass; BLACKWATER desktop tests still pass. See
-  `docs/PACKAGE_EMULATION.md` for exact evidence and remaining work.
-- Desktop simulator tests pass. No device cross-build, linked memory report, device
-  CPU deadline validation, physical FM-1 test, or deployment has been performed.
-- Device packaging guarded pending a unique firmware identity and verified toolchain.
+- BLACKWATER's actual device package now cross-compiles with fm1-base (JieLi toolchain,
+  the three pinned AC79 SDK files, hash-checked): `firmware/build/blackwater.fwsc`,
+  identity `FM-1_7700` (prefix `FM-1_77`, a routine engineering choice). fm1-base's
+  memory/ISR/FPU/register checks pass; a clean rebuild is byte-identical.
+- That same package boots in the existing fm1-emu: native CLI, Node-Wasm, and automated
+  headless Chromium on the assembled static site, including audio after cast + PLAY,
+  screen changes for controls, and SAVE surviving a page reload. Evidence and limits:
+  `docs/PACKAGE_EMULATION.md`.
+- Not yet done: a person playing and listening in a browser, public deployment (needs
+  authorization), physical FM-1 testing, device CPU deadline measurements beyond the
+  emulator's ISR share.
+- Desktop simulator and engine tests still pass; five package guard tests pass.
 - Upstream platform suite audit had reproducible `mirror`/`mirror-viewer` failures
   (56 other named groups passed). They remain upstream issues of unconfirmed cause.
 - See `docs/DEVELOPMENT.md` for exact current controls, tests, behavior and limitations.
-- Next: resolve browser environment prerequisite, obtain the clip and musical-behavior decisions,
-  evaluate the first playable behavior with the user, and implement approved changes.
+- Next: the user evaluates the package in the browser emulator; on authorization, a
+  GitHub Pages deployment; then the clip and musical/gameplay decisions.
 - MIKU-FM1 site-source audit identifies `joakimeriksson/fm1-emu` as its real-package
   emulator and Dinghy/Felucca as its firmware ancestry. fm1-emu's Rust/Wasm browser
   build is distinct from fm1-base's Emscripten application simulator. Retain the

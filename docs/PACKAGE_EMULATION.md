@@ -1,92 +1,157 @@
-# Real-package emulator integration
+# Real-package build and emulator integration
 
-## Current verified state
+Recorded 2026-11-04 (Claude Code cloud session). Each level of evidence below is kept
+separate: compilation, host simulation, native binary emulation, Node-Wasm, automated
+Chromium, a person using the page, and physical hardware.
 
-- Pinned existing fm1-emu at `9de1ef053a3c4bf56f16f05b5f0de193f4608a1d`
-  in `platform/fm1-emu`; upstream sources remain unchanged.
-- Built native CLI and Rust/Wasm browser emulator with stable Rust **1.99.1**.
-  Rust 1.91.1 failed on upstream `if let` match guards; use the tested newer compiler.
-  Upstream builds emit unused-assignment warnings; they are not warning-free.
-- Emulator browser output is generated at `build/emulator-web`. This is emulator
-  tooling, **not a working BLACKWATER demonstration**.
-- Upstream Wasm smoke check with official stock V15 package: 132,352 audio frames
-  over three simulated seconds, 55,823 lit pixels, halted=0. MIDI note RMS rose
-  from 0.0000 to 0.0474. This checks the emulator baseline only.
-- Native CLI baseline with stock V15 also completed: 1,200 simulated ms, 240x240
-  screenshot with 57 colors, 45,760 audio frames. That short native run was near-silent
-  (RMS 0.05), so it is a boot/display check, not a native sound success.
-- BLACKWATER's desktop application/engine tests still pass. Five package guard tests
-  pass using explicitly synthetic parser fixtures (not executable firmware).
+## Summary
 
-## Blocking prerequisites
+| Level | State |
+| --- | --- |
+| Device cross-build (PI32v2, fm1-base) | **Done.** `firmware/build/blackwater.fwsc`, identity `FM-1_7700` |
+| fm1-base device checks (memory, ISR, FPU, registers) | **Pass** |
+| Rebuild reproducibility | **Byte-identical** package on a clean rebuild |
+| Host simulator + engine tests | **Pass** (unchanged from the handoff) |
+| Package guard tests (synthetic fixtures) | **Pass** (5) |
+| Package integrity vs. build binary | **Pass** (`tools/package_metadata.mjs`) |
+| Native fm1-emu boot of the package | **Pass** (`tools/emulator_smoke.py`) |
+| Node-Wasm fm1-emu boot of the package | **Pass** (`tools/emulator_wasm_smoke.mjs`) |
+| Automated Chromium on the assembled site | **Pass** (`tools/browser_smoke.mjs`), incl. SAVE → reload |
+| A person playing/listening in a browser | **Not done** |
+| Public deployment | **Not done** (needs the user's authorization) |
+| Physical FM-1 | **Not done** |
 
-The official JieLi compiler download at `pkgman.jieliapp.com` returned HTTP 403;
-read-only SDK Git access at `gitee.com` also returned proxy HTTP 403. The platform's
-GitHub SDK URL returned repository-not-found; that is distinct from a missing user
-GitHub token. No extra credential was requested.
+## Toolchain and SDK
 
-Environment network draft additions for those two domains have been saved, preserving
-`storage.googleapis.com`. They have **not** established runtime access. Review/save
-in environment settings and publish the environment as instructed by the configuration
-workflow; then retry the affected downloads. Preserve TLS, package hashes and the
-SDK's pinned resource checks. Do not disable verification or fabricate SDK resources.
+- JieLi toolchain: `https://pkgman.jieliapp.com/s/linux-toolchain`, which redirected to
+  `jieli-linux-toolchains-20260730.1.tar.xz`, SHA-256
+  `a1545cddbc451a06bac43eb5cd96d831470c42a97c5c0b1f98879a20fc7647bd`
+  (fm1-base's `tools/get_toolchain.sh` fetches the same URL). Used natively on Linux
+  x86-64 via `JIELI_TOOLCHAIN`; no container.
+- AC79 SDK: a non-Bluetooth, non-WiFi fm1-base build reads only three SDK files
+  (`tools/fm1pkg_make.py`). Whole-repository git access to gitee reset the connection
+  from this environment, but gitee's raw-file endpoint worked intermittently.
+  `tools/get_sdk_files.sh` fetches those three files at the pinned SDK commit
+  `d179b4484759423312073f5fbb232501aa491047` (tag `AC79NN_SDK_V1.2.1_2023-12-13`),
+  with retries, and accepts each only if it matches fm1-base's `SDK_SHA256`:
 
-The real firmware cross-build, BLACKWATER package identity assignment/check,
-BLACKWATER package boot, end-to-end site assembly, browser interaction, and physical
-hardware remain outstanding. `build.sh` still guards the device target rather than
-packaging with the placeholder identity. No BLACKWATER site is deployed.
+  | File | SHA-256 (matches fm1-base) |
+  | --- | --- |
+  | `cpu/wl82/tools/uboot.boot` | `4e3b4c22…76ded4` |
+  | `cpu/wl82/tools/cfg_tool.bin` | `27657995…7b010d1b` |
+  | `cpu/wl82/tools/cfg/eq_cfg_hw.bin` | `41167491…ed80ea7d` |
 
-## Reproduce emulator builds
+  build.py printed no SDK-mismatch warning. Enabling Bluetooth or WiFi later would need
+  a full SDK checkout (libraries and headers), as in MPFM1/MIKU's GitHub Actions builds.
+- MIKU-FM1 and MPFM1 build their device packages in GitHub Actions (the same toolchain
+  URL and a gitee clone), not in a cloud sandbox; that is the "known-good" setup.
 
-The cloud instance retains Rust under `/workspace/.blackwater-tools`; the build
-helper selects those paths if present. On another machine install current stable
-Rust (tested with 1.99.1), including `wasm32-unknown-unknown`, before running:
+## Identity
+
+`firmware/fm1.toml` now has `id_prefix = "FM-1_77"`: dev packages `FM-1_7700`, releases
+`FM-1_77XXYYZZ`. There is no central registry; the prefix was chosen not to collide with
+those seen in fm1-base, fm1-emu and the sibling projects (0 placeholder, 11 template,
+12, 39 MIKU-FM1, 56 MPFM1, 99, stock 015/016). It is a routine choice and can change.
+
+## Build
 
 ```sh
-./tools/build_emulator.sh
+platform/fm1-base/tools/get_toolchain.sh /opt/jieli    # or any directory
+tools/get_sdk_files.sh build/ac79-sdk
+. build/venv/bin/activate                              # Pillow with raqm (tools/setup.sh)
+JIELI_TOOLCHAIN=/opt/jieli/toolchain AC79_SDK=build/ac79-sdk ./build.sh
 ```
 
-This builds only the existing upstream native and browser emulator targets, with
-four compiler jobs by default. It does not initialize the optional unrelated SID
-firmware submodule. `tools/emulator-toolchain.txt` selects stable Rust; the version
-above records what was actually tested, not a promise that every future stable
-compiler is validated.
+`./build.sh` now builds the device package by default (it needs both variables);
+`--host`, `--web` and `--release X.Y` pass through to fm1-base's `tools/build.py`.
 
-## Package-driven checks and site assembly
+fm1-base's report for the dev package:
 
-Once a **real cross-build** has produced both files:
-
-```sh
-node tools/package_metadata.mjs firmware/build/blackwater.fwsc firmware/build/blackwater.bin
-python3 tools/emulator_smoke.py firmware/build/blackwater.fwsc firmware/build/blackwater.bin
-node tools/emulator_wasm_smoke.mjs build/emulator-web firmware/build/blackwater.fwsc firmware/build/blackwater.bin
-python3 tools/build_simulator_site.py firmware/build/blackwater.fwsc firmware/build/blackwater.bin
+```
+ok    .ram_text: 975 insns, no calls
+ok    no 64-bit multiply inlined beside a load
+ok    no soft-double routines (single-precision FPU only)
+ok    image 83816 B; RAM .data+.bss 31028 B of 98304; pool 23304 B of 344064
+ok    register access: felucca-bsp only (device/, include/ and the app clean)
+parts    USB audio in, USB audio out
+app      firmware/build/blackwater.bin  83816 B
+loader   firmware/build/loader/ota.bin  8340 B
+package  firmware/build/blackwater.fwsc  611496 B, identity FM-1_7700
 ```
 
-These BLACKWATER-specific steps are prepared but **not executed successfully yet**,
-so do not describe them as verified integration. Missing package inputs fail before
-site output is produced.
+Package SHA-256 `30f3da8c6efb4e7cab6d641b268fccf84b70385bc0ebbff490772354ec6662ac`;
+app (as carried in the package) SHA-256 `36a8b0f4…350d2be3d`, byte-equal to
+`blackwater.bin` without its trailing 0xFF padding.
 
-- Package checking reuses established upstream parsers, validates UFW checksums,
-  rejects template identities, requires a BLACKWATER identification string and exact
-  application-byte equality with the intended build binary. A name alone is not
-  treated as application verification; the emulator steps must execute it too.
-- Native smoke uses a fresh evidence directory, boots the package, casts, starts
-  playback, opens fishing and statistics, and checks actual audio and screen changes.
-  It is a smoke check, not complete feature validation.
-- Wasm smoke executes the actual device package using fm1-emu's existing exports and
-  verifies audio/control/display responses. A Node Wasm run is not browser testing.
-- Site assembly has no skip-test flag: both checks must pass. It creates a static
-  wrapper around the existing emulator with a BLACKWATER-only firmware catalog,
-  copies that same package, preserves relevant notices, and records hashes, source
-  revision/dirty state and validation limits in `build.json`. Existing nonempty output
-  directories are refused; choose another generated output directory when rebuilding.
-- The resulting page still needs real browser interaction/audio/persistence testing
-  before being called browser-verified. It must not be published as tested hardware.
-- Deployment is a separate action. No automatic deployment workflow was added.
+## Emulator
 
-The browser emulator uses Rust/Wasm, so its build does not require the previously
-blocked Emscripten installation for fm1-base's separate application simulator.
+fm1-emu `9de1ef053a3c4bf56f16f05b5f0de193f4608a1d`, unmodified. Native CLI and the
+browser Wasm both built with Rust **1.97.0** (the environment's stable) plus the
+`wasm32-unknown-unknown` target. (The handoff recorded 1.99.1 working and 1.91.1
+failing.)
+
+### Native CLI (`tools/emulator_smoke.py`)
+
+6 s emulated, keys REC 1.5 s, PLAY 1.8 s, SEQ 4.0 s: silent before PLAY (RMS 0),
+then RMS ≈ 530–570, peak 2060 (16-bit) once a hook is cast and transport runs. 240×240
+screens of 48–93 colours; river → hook placed → fishing screen as expected. 59,461
+interrupts, 1,012 audio halves, no halt; cpu0 12.8 % in ISRs. Three unknown MMIO
+addresses were reported (0x000100c0, 0x00040200) — an emulator bring-up list, not
+investigated further. The native CLI runs about 25× slower than real time here
+(≈145 s for 6 s), so the smoke script's timeout was raised from 300 to 900 s.
+
+### Node-Wasm (`tools/emulator_wasm_smoke.mjs`)
+
+Display drawn at boot; REC + PLAY → RMS 0.017 over 1 s (44,160 frames); SEQ and SEL
+each change the screen; no halt. About 4 emulated seconds in 1.5 s wall time (JIT on).
+
+### Automated Chromium (`tools/browser_smoke.mjs`)
+
+Playwright's Chromium (headless) opens fm1-emu's own page from the assembled site,
+presses its Start button and drives the firmware with the page's keyboard mapping.
+Audio is measured with an AnalyserNode attached beside the page's own AudioWorklet →
+speakers connection (it only listens). Screens are cut from the page's panel canvas.
+
+- Status line: `BLACKWATER · 100 MHz · 2.3–3.1x real time · load 32–43 %`.
+- Stopped: output RMS 0. REC (R) + PLAY (Space): RMS ≈ 0.026.
+- SEQ (0) → fishing screen with the wait timer; SEL (2) → catch log.
+- After ~40 s an automatic catch registered (Bluegill, count 1, 376 mm in one run).
+- SAVE (8), the page's "save now", reload, Start: the catch log shows the same catch.
+  A separate browser profile that never saved shows all zeros. Persistence passes.
+- Encoders (fresh profile): ALGORITHM (.) selects track 2; PRESETS (↑) leaves the river
+  screen unchanged (it acts only in EDIT, as designed); SELECT (→) moves to the next
+  screen. Every screen above was also inspected by eye.
+- One early run timed out waiting for the second browser's Start; the test now
+  retries Start (reload, up to three tries). Later runs passed every time (4 of 4).
+- Knob (pot) drags, the piano keys, EDIT/ENV/GLO editing and timed landing were not
+  driven in the browser; the host scenario covers them in the desktop simulator only.
+- Headless Chromium plays to no speakers: levels are measured, nobody listened.
+
+## Site
+
+`tools/build_simulator_site.py PACKAGE APP` refuses a nonempty output, runs the
+package check, the native and Node-Wasm smoke tests, assembles `build/site/` (front
+page, `emulator/` = fm1-emu's page with a BLACKWATER-only catalog, `firmware/`,
+`licenses/`, `build.json`), and finally runs `tools/browser_smoke.mjs` on the assembled
+site; on failure it deletes the site. `build.json` records hashes, source and emulator
+commits, `source_dirty`, and which test levels passed (`browser_tested_by_a_person`
+and `physical_hardware_tested` stay false). The front page with the embedded emulator
+also loaded in Chromium without errors.
+
+The site is static and needs only a web server (`python3 -m http.server -d build/site`).
+**It is not deployed.** A GitHub Pages workflow (after MIKU-FM1's) is the natural next
+step, but only once the user authorizes publishing.
+
+## Fixes to the prepared tools
+
+- `package_metadata.mjs`: upstream parsers decode the buffer they receive in place, so
+  the script hashed modified bytes (`381daef…` instead of the file's `30f3da8…`), which
+  made the site builder's final hash check fail. It now hashes the file as read and
+  gives each parser its own copy.
+- `emulator_smoke.py`: timeout 300 → 900 s (the native emulator's real speed here).
+- `build_simulator_site.py`: browser gate added; page text matches what was verified;
+  an empty SMK-37 catalog instead of a 404 on the page's optional twin lookup.
+- `build.sh`: device target enabled now that the identity and toolchain are in place.
 
 ## Local checks of integration tooling
 
