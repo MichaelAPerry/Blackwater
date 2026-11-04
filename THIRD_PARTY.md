@@ -8,6 +8,7 @@ The repository's existing GPL version 3 license text is retained.
 | fm1-base, pinned submodule | MPL-2.0; retain `platform/fm1-base/LICENSE`, `LICENSING.md`, `CREDITS.md` and `LICENSES/` | Platform API, graphics, audio/control/storage implementations, host/browser simulator, build tools, single-precision math |
 | felucca-bsp, pinned nested submodule | MPL-2.0 and component notices in its repository | FM-1 board/chip support and update infrastructure |
 | Barlow fonts from fm1-base | SIL OFL 1.1, `platform/fm1-base/assets/fonts/Barlow-OFL.txt` | Generated device and simulator text rendering |
+| fm1-emu, pinned submodule | MIT, `platform/fm1-emu/LICENSE` | Existing native/browser CPU and peripheral emulator; not replacement application DSP |
 | Pillow | HPND, installed development tool | Upstream font generation |
 
 See upstream `LICENSING.md` for the complete component inventory and optional

@@ -582,6 +582,7 @@ void app_frame(void)
         ann_say(bw_pages[bw_ui.page], 0, ANN_NOW);
     ann_tick(plat_ms());
 }
+#ifdef PLAT_HOST
 int app_expect(const char *what, int *got)
 {
     unsigned k = bw_ui.track;
@@ -613,3 +614,5 @@ int app_expect(const char *what, int *got)
         }
     return 0;
 }
+
+#endif /* PLAT_HOST: simulator assertions are not part of the device image. */

@@ -61,7 +61,9 @@ BLACKWATER. Preserve component licenses when reusing scripts or emulator assets.
 
 ## Current status
 
-BLACKWATER has only been validated through fm1-base's desktop application simulator.
-No BLACKWATER `.fwsc` has been cross-built or booted in fm1-emu, and no browser site
-has been deployed. The research repositories were read outside the project checkout;
-fm1-emu and Dinghy were not added as dependencies or built during this audit.
+See [real-package integration status](PACKAGE_EMULATION.md) for the latest evidence.
+The pinned existing emulator now builds natively and for the browser; its Wasm baseline
+works with official stock V15. BLACKWATER itself still has only desktop application
+simulator validation. No BLACKWATER `.fwsc` has been cross-built or booted in fm1-emu,
+and no BLACKWATER browser site has been deployed. Official compiler/SDK downloads
+are blocked by runtime network policy; required domain additions are saved for review.

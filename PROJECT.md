@@ -70,9 +70,15 @@
 
 ## Current tasks and known limitations
 
-- Browser toolchain blocked: official Emscripten download at `storage.googleapis.com`
-  returns proxy HTTP 403. Domain addition saved in environment configuration draft;
-  current-instance access still denied on retry. Browser build/interaction unverified.
+- Existing fm1-emu native and Rust/Wasm browser targets build with stable Rust
+  1.99.1. Official stock V15 passes the upstream Wasm baseline; this does not validate
+  BLACKWATER. Its real-package smoke checks/site assembler are prepared, not yet
+  successfully exercised with a BLACKWATER package.
+- Device cross-build blocked by official compiler/SDK access: `pkgman.jieliapp.com`
+  and `gitee.com` returned proxy HTTP 403. Required domains saved in environment
+  settings draft, preserving the earlier Emscripten domain addition.
+- Five package guard tests pass; BLACKWATER desktop tests still pass. See
+  `docs/PACKAGE_EMULATION.md` for exact evidence and remaining work.
 - Desktop simulator tests pass. No device cross-build, linked memory report, device
   CPU deadline validation, physical FM-1 test, or deployment has been performed.
 - Device packaging guarded pending a unique firmware identity and verified toolchain.
