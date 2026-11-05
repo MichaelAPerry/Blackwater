@@ -6,7 +6,7 @@
 //   node tools/browser_smoke.mjs SITE_DIR OUT_DIR
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync} from 'node:fs';
+import {mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {extname, join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -30,7 +30,8 @@ const server = createServer((req, res) => {
     res.end(readFileSync(file));
 }).listen(0, '127.0.0.1');
 await new Promise(r => server.once('listening', r));
-const url = `http://127.0.0.1:${server.address().port}/emulator/?fw=blackwater&mhz=240`; // the chip's clock
+const emuDir = readdirSync(site).find(d => d.startsWith('emulator-')) || 'emulator';   // this build's emulator
+const url = `http://127.0.0.1:${server.address().port}/${emuDir}/?fw=blackwater&mhz=240`; // the chip's clock
 
 const tap = () => {
     const connect = AudioNode.prototype.connect;
@@ -89,18 +90,45 @@ try {
         for (let t = 0; t < ms; t += 50) { peak = Math.max(peak, await page.evaluate(() => window.__bwLevel())); await page.waitForTimeout(50); }
         return peak;
     };
-    const press = async (key, ms = 400) => { await page.keyboard.press(key); await page.waitForTimeout(ms); };
+    // a press as long as a finger's (a press shorter than the firmware's key scan can go unseen)
+    const press = async (key, ms = 400) => { await page.keyboard.down(key); await page.waitForTimeout(120);
+        await page.keyboard.up(key); await page.waitForTimeout(ms); };
     const shot = name => lcdShot(page, name);
+    const part = async (name, y0, h) => {
+        const b = await page.locator('#panel').boundingBox();
+        const ly = b.y + b.height * 0.036, lh = b.height * 0.615;
+        return page.screenshot({path: join(out, name + '.png'),
+            clip: {x: b.x + b.width * 0.285, y: ly + lh * y0 / 240, width: b.width * 0.42, height: lh * h / 240}});
+    };
+    const wheel = async (cx, cy, clicks) => {
+        const b = await page.locator('#panel').boundingBox();
+        await page.mouse.move(b.x + cx / 1280 * b.width, b.y + cy / 820 * b.height);
+        for (let i = 0; i < Math.abs(clicks); i++) { await page.mouse.wheel(0, clicks > 0 ? -40 : 40); await page.waitForTimeout(60); }
+        await page.waitForTimeout(500);
+    };
     const boot = () => startPage(page);
 
     await boot();
     const status = await page.locator('#status').textContent().catch(() => '');
     log('booted', {status});
-    await press('7');
-    await press('7');
+    await press('7');                               // HOME on the river: the catch log
     const emptyLog = await shot('0-log-empty');   // the catch log before any fish
-    await press('7');
+    const rowsEmpty = await part('0b-log-rows-empty', 54, 150);
+    await press('7');                               // HOME again: back to the river
     const river = await shot('1-river');
+    // the panel's own knobs, with the mouse (the wheel over a knob turns it a detent per notch), as a person does:
+    // K1 on the river is the bluegill's level, shown in the knob bar; PRESET there is the weather, in the header
+    const barBefore = await part('k1-bar-before', 211, 29);
+    await wheel(935, 120, 5);                                  // KNOB1
+    const barAfter = await part('k1-bar-after', 211, 29);
+    assert.ok(!barAfter.equals(barBefore), 'K1 (mouse) did not change the knob bar');
+    await wheel(935, 120, -5);
+    const headBefore = await part('preset-head-before', 0, 32);
+    await wheel(110, 295, 1);                                  // PRESETS
+    const headAfter = await part('preset-head-after', 0, 32);
+    assert.ok(!headAfter.equals(headBefore), 'PRESET (mouse) did not change the header (the weather)');
+    await wheel(110, 295, -1);
+    log('mouse: K1 and PRESET change the screen');
     // encoders, as the page's keys turn them (fm1-emu: arrows left/right SELECT, up/down PRESETS, , . ALGORITHM)
     const turn = async (key, name) => { await page.keyboard.press(key); await page.waitForTimeout(400); return lcdShot(page, name); };
     const home = await lcdShot(page, '8-river');
@@ -127,10 +155,14 @@ try {
     const fishing = await shot('3-fishing');
     assert.ok(!fishing.equals(cast), 'SEQ did not change the display');
 
-    // wait for automatic catches (default waits 8-32 s)
-    await page.waitForTimeout(40000);
-    await press('7');            // HOME, HOME: the catch log
-    await press('7');
+    // play: answer the bites and reel in, as a player does, with REC (R), for forty seconds; screens on the way
+    let shots = 0;
+    for (let t = 0; t < 40000; t += 700) {
+        await press('r', 580);
+        if (t % 7000 < 700 && shots < 6) await shot(`3-playing-${shots++}`);
+    }
+    await press('7');            // HOME: the river (from FISHING)
+    await press('7');            // HOME again: the catch log
     const stats = await shot('4-stats-before-save');
     assert.ok(!stats.equals(fishing), 'SEL did not change the display');
     log('statistics shown');
@@ -141,18 +173,22 @@ try {
     await shot('5-after-save');
     await page.locator('#save-now').click();          // the page writes the emulated flash to this browser
     await page.waitForTimeout(1500);
+    const rowsBeforeSave = await part('4b-log-rows-at-save', 54, 150);   // the log as saved
     log('saved');
 
     await press('6');            // GLO: the audio's own load and xruns, after a minute of playing
     await shot('5b-global-load');
     await boot();                // reload: the same browser profile, a fresh firmware boot
-    await press('7');
-    await press('7');
+    await press('7');            // the river is first: HOME once is the catch log
     const restored = await shot('6-stats-after-reload');
     log('reloaded');
 
-    assert.ok(!restored.equals(emptyLog), 'reloaded catch log is empty: the save did not persist');
-    log('restored catch log differs from the empty one');
+    // the catch log's rows (not the header): playing caught fish, and the reload shows exactly those
+    const rows = async name => part(name, 54, 150);
+    const rowsRestored = await rows('6b-log-rows-after-reload');
+    assert.ok(!rowsBeforeSave.equals(rowsEmpty), 'a minute of play caught nothing: the log rows are as empty as at the start');
+    assert.ok(rowsRestored.equals(rowsBeforeSave), 'the catch log after the reload is not the one saved');
+    log('playing caught fish; the catch log survived the reload');
 
     result.errors = errors;
 } finally {

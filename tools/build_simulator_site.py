@@ -37,21 +37,30 @@ metadata['browser_automated_chromium'] = False  # set below, once tools/browser_
 metadata['browser_tested_by_a_person'] = False
 metadata['physical_hardware_tested'] = False
 out.mkdir(parents=True, exist_ok=True)
-shutil.copytree(web, out/'emulator')
+# every build its own URLs: the emulator and the package (a browser's cache never serves an older firmware)
+build_id = metadata['package_sha256'][:10]
+emu_dir, pkg_name = f'emulator-{build_id}', f'blackwater-{build_id}.fwsc'
+shutil.copytree(web, out/emu_dir)
 (out/'firmware').mkdir()
-shutil.copy2(package, out/'firmware/blackwater.fwsc')
+shutil.copy2(package, out/'firmware'/pkg_name)
+metadata['emulator_path'], metadata['package_path'] = emu_dir + '/', 'firmware/' + pkg_name
+(out/'emulator').mkdir()  # the old address: on to this build's
+(out/'emulator'/'index.html').write_text(f'<!doctype html><meta charset="utf-8"><title>BLACKWATER emulator</title>'
+    f'<meta http-equiv="refresh" content="0; url=../{emu_dir}/?fw=blackwater&amp;mhz=240">'
+    f'<script>location.replace("../{emu_dir}/" + (location.search || "?fw=blackwater&mhz=240"))</script>'
+    f'<a href="../{emu_dir}/?fw=blackwater&amp;mhz=240">BLACKWATER in fm1-emu</a>')
 # Remove unrelated firmware choices from the generated page's catalogs.
 catalog = {'note':'BLACKWATER development firmware; not physically verified.', 'default':'blackwater',
-    'firmwares':[{'id':'blackwater','name':'BLACKWATER','version':metadata['source_commit'][:7],
+    'firmwares':[{'id':'blackwater','name':'BLACKWATER','version':(a.version or 'dev') + ' ' + build_id[:7],
         'license':'GPL-3.0-or-later','repo':'https://github.com/MichaelAPerry/Blackwater',
         'about':'Development prototype: four-track generative fishing FM.',
-        'package':'../firmware/blackwater.fwsc'}]}
-(out/'emulator/firmwares.json').write_text(json.dumps(catalog, indent=2)+'\n')
+        'package':'../firmware/' + pkg_name}]}
+(out/emu_dir/'firmwares.json').write_text(json.dumps(catalog, indent=2)+'\n')
 # The optional SMK-37 page is unrelated to this FM-1 application.
-shutil.rmtree(out/'emulator/smk37')
+shutil.rmtree(out/emu_dir/'smk37')
 # (the FM-1 page still asks for the SMK-37's catalog, to pair firmwares: an empty one)
-(out/'emulator/smk37').mkdir()
-(out/'emulator/smk37/firmwares.json').write_text('{"firmwares": []}\n')
+(out/emu_dir/'smk37').mkdir()
+(out/emu_dir/'smk37/firmwares.json').write_text('{"firmwares": []}\n')
 (out/'licenses').mkdir()
 for src,name in [('LICENSE','BLACKWATER-GPL.txt'),('platform/fm1-emu/LICENSE','fm1-emu-MIT.txt'),
                  ('platform/fm1-base/LICENSE','fm1-base-MPL.txt')]:
@@ -140,10 +149,10 @@ The piano keys play the chosen fish in the scale; the upper (black) keys bend it
 K1-K4 are the panel's knobs (drag them).</p>
 <p>The emulator runs the FM-1's chip at its own 240 MHz: a slower computer may stutter (the page's clock menu).</p>
 <p>The rare fish (crappie, peacock bass, brook trout, flathead) borrow their cousins' sprites until their own art is in; the fish-on clip plays only in builds that include one.</p>
-<iframe src="emulator/?fw=blackwater&amp;mhz=240&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
+<iframe src="EMU/?fw=blackwater&amp;mhz=240&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
 INSTALL
-<p><a href="emulator/?fw=blackwater&amp;mhz=240">Open the full emulator</a> ·
-<a href="manual/">Manual</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
+<p><a href="EMU/?fw=blackwater&amp;mhz=240">Open the full emulator</a> ·
+<a href="manual/">Manual</a> · <a href="firmware/PKG">Download this build package</a>
  · <a href="build.json">Build and validation details</a></p>
 <p>Package SHA-256: <code>PACKAGE_HASH</code></p>
 <p class="notice">BLACKWATER is an unofficial fan project, not affiliated with, sponsored or endorsed by Jeremy Wade,
@@ -159,8 +168,8 @@ Emulator: <a href="https://github.com/joakimeriksson/fm1-emu">fm1-emu by Joakim 
 install_html = ('<p class="install"><a class="button" href="install/">Install on your FM-1</a> '
                 f'version {html.escape(a.version)} · <a href="firmware/{installed[0]}">download the package</a> · '
                 '<a href="backup/">back up / restore your sessions</a> (Chrome or Edge, over USB)</p>') if installed else ''
-(out/'index.html').write_text(page.replace('PACKAGE_HASH', html.escape(metadata['package_sha256'])).replace('INSTALL', install_html))
-assert hashlib.sha256((out/'firmware/blackwater.fwsc').read_bytes()).hexdigest() == metadata['package_sha256']
+(out/'index.html').write_text(page.replace('PACKAGE_HASH', html.escape(metadata['package_sha256'])).replace('INSTALL', install_html).replace('EMU/', emu_dir + '/').replace('firmware/PKG', 'firmware/' + pkg_name))
+assert hashlib.sha256((out/'firmware'/pkg_name).read_bytes()).hexdigest() == metadata['package_sha256']
 # Last gate: the assembled page itself, in Chromium. A failure leaves no site behind.
 evidence = Path(tempfile.mkdtemp(prefix='browser-', dir=root/'build'))
 try:

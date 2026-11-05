@@ -15,13 +15,23 @@ bigger the fish, the further the theme moves. Rare fish start a new section, and
 Each fish is a six-operator FM voice with four factory patches (EDIT page 4) and four of your own. All four follow
 one key, scale and chord progression (SCALE), so their themes stay in harmony as they change.
 
+## The screen
+
+- **Top:** the twelve pages as icons, this one lit (SELECT turns them); the page's name and PLAYING / STOPPED
+  with the weather; then the chosen fish (or the latest catch, or a message) and, on the right, **what PRESET does
+  on this page**.
+- **Bottom:** the knob bar: what **K1-K4** do here, their values and a line for each. On the river they are the
+  four fish's levels.
+- The version (0.2 and on) shows on the boot screen, GLOBAL and HELP.
+
 ## Fishing
 
 1. All four lines start in the water: press **PLAY** and the whole river plays. **REC** on a fish whose line is in
    the water pulls it in (that fish goes quiet); REC again casts it.
 2. The bobbers bob; a nibble shakes one; a **bite** pulls it under, the lane flashes and REC blinks. Press **REC**
    within three seconds: it answers whichever fish is biting and that fish becomes the chosen one.
-3. The fight: **reel with SELECT, K1 or REC** (the arrow keys or R in the browser). Keep the line tension in the
+3. The fight: **reel with SELECT, K1 or REC** (the arrow keys or R in the browser); you can change pages meanwhile,
+   the fight goes on. Keep the line tension in the
    green and ease off while the fish runs: too tight snaps the line, too slack throws the hook. The rod bends with
    the tension.
 4. A catch shows in the header for a few seconds (species, length, a new best) and its lane flashes; nothing covers
@@ -61,9 +71,9 @@ rhythmic, spinner pitch, jig structure). Small fish change one thing, big ones t
 | GLO | GLOBAL, three pages: tempo, clock (internal / MIDI), weather (auto: day, dusk, night, storm, three minutes each), best = key change; units (cm/kg or in/lb), fish-on clip and level, autosave; slots (load / save 1–4), MIDI out |
 | SAVE | save this slot (with the catch log and settings) |
 | ALGORITHM | choose the fish |
-| SELECT | pages (on EDIT and ENVELOPE: the operator, then on past the sixth); in a fight: reel in |
-| PRESETS | the page's sub-page; RIVER the weather, FISHING the depth, SCALE the key, LFO the target, ARP the mode, ENVELOPE the operator |
-| K1–K4 | the page's four values |
+| SELECT | the pages (the icons along the top); in a fight: reel in |
+| PRESETS | what the header says, top right: RIVER the weather, FISHING the depth, SCALE the key, EDIT and ENVELOPE the operator, LFO the target, ARP the mode; elsewhere the page's sub-page (the page's button again does that too) |
+| K1–K4 | the page's four values: the bar along the bottom of every screen names them and shows them |
 | MASTER | volume |
 | OCT- / OCT+ | the keyboard's octave |
 | White keys | play the chosen fish in the scale (16 notes); with ARP on, arpeggiated |

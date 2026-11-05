@@ -885,7 +885,7 @@ int bw_hookset(bw_engine *e, unsigned k)
     float lo = bw_fish_data[e->fish[k]].min_mm, hi = bw_fish_data[e->fish[k]].max_mm;
     float frac = fm_clampf(((float)e->fish_mm[k] - lo) / (hi - lo), 0.0f, 1.2f);
     e->hooked_state[k] = BW_FISH_FIGHT;
-    e->fight_dist[k] = 25.0f + 40.0f * frac + (e->fish_rare[k] ? 15.0f : 0.0f);
+    e->fight_dist[k] = 15.0f + 25.0f * frac + (e->fish_rare[k] ? 8.0f : 0.0f); /* clicks of line to win */
     e->fight_max[k] = e->fight_dist[k] * 1.6f + 10.0f;
     e->fight_tension[k] = 30.0f;
     e->fight_run[k] = 0;
@@ -921,8 +921,8 @@ int bw_fight(bw_engine *e, unsigned k, int reel, unsigned ms)
         *d -= 0.5f * (float)reel;
     }
     *tn += (pull * 15.0f - 40.0f) * dt;
-    if (reel <= 0)
-        *d += pull * 1.2f * dt;
+    if (reel <= 0) /* line lost while not winding: mostly on its runs */
+        *d += pull * (*run > 0.0f ? 1.2f : 0.3f) * dt;
     if (*tn > 85.0f) /* the drag slips: line pays out, the strain eases */
     {
         *d += (1.0f + pull * 3.0f) * dt;
