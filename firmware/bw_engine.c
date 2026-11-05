@@ -432,7 +432,7 @@ void bw_track_defaults(bw_engine *e, unsigned k)
 {
     static const uint8_t pan[4] = {38, 50, 64, 50}, rev[4] = {25, 8, 35, 30}, dly[4] = {20, 0, 15, 5},
                          cho[4] = {0, 0, 30, 10}, drive[4] = {0, 12, 0, 8}, vol[4] = {72, 80, 68, 82};
-    static const uint16_t wmin[4] = {6, 9, 8, 14}, wmax[4] = {20, 28, 24, 40};
+    static const uint16_t wmin[4] = {45, 60, 50, 90}, wmax[4] = {150, 200, 170, 300};
     bw_track *t = &e->track[k];
     unsigned char *p = (unsigned char *)t;
     for (unsigned i = 0; i < sizeof *t; i++)
@@ -884,6 +884,16 @@ int bw_hookset(bw_engine *e, unsigned k)
         return 0;
     float lo = bw_fish_data[e->fish[k]].min_mm, hi = bw_fish_data[e->fish[k]].max_mm;
     float frac = fm_clampf(((float)e->fish_mm[k] - lo) / (hi - lo), 0.0f, 1.2f);
+    /* not every strike sticks: the bigger the fish, the likelier it spits the hook */
+    float stick = 0.8f - 0.3f * fm_minf(frac, 1.0f) - (e->fish_rare[k] ? 0.15f : 0.0f);
+    if (bw_unit(e) >= stick)
+    {
+        bw_event_set(e, k, BW_FIGHT_THROWN);
+        e->log.missed++;
+        e->hooked_state[k] = BW_FISH_WAIT;
+        bw_schedule(e, k);
+        return 0;
+    }
     e->hooked_state[k] = BW_FISH_FIGHT;
     e->fight_dist[k] = 15.0f + 25.0f * frac + (e->fish_rare[k] ? 8.0f : 0.0f); /* clicks of line to win */
     e->fight_max[k] = e->fight_dist[k] * 1.6f + 10.0f;
@@ -907,12 +917,13 @@ int bw_fight(bw_engine *e, unsigned k, int reel, unsigned ms)
     /* the fish's runs: they start at random, last about a second */
     if (*run > 0.0f)
         *run -= dt;
-    else if (bw_unit(e) < 0.8f * strength * dt)
+    else if (bw_unit(e) < (0.2f + 0.2f * strength) * dt)
         *run = 0.5f + bw_unit(e);
     float pull = strength * (0.4f + (*run > 0.0f ? 1.6f : 0.0f));
     if (reel > 0) /* each click of the reel pulls harder on a stronger fish */
     {
-        *tn += (2.0f + strength) * (float)reel;
+        /* reeling against a run strains the line twice as hard */
+        *tn += (3.0f + 2.0f * strength) * (*run > 0.0f ? 2.0f : 1.0f) * (float)reel;
         *d -= (float)reel;
     }
     else if (reel < 0)
@@ -920,7 +931,7 @@ int bw_fight(bw_engine *e, unsigned k, int reel, unsigned ms)
         *tn += 2.0f * (float)reel;
         *d -= 0.5f * (float)reel;
     }
-    *tn += (pull * 15.0f - 40.0f) * dt;
+    *tn += (pull * 15.0f - 32.0f) * dt;
     if (reel <= 0) /* line lost while not winding: mostly on its runs */
         *d += pull * (*run > 0.0f ? 1.2f : 0.3f) * dt;
     if (*tn > 85.0f) /* the drag slips: line pays out, the strain eases */

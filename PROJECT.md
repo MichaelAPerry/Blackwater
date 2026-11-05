@@ -28,6 +28,10 @@
 - A pull request to main waits until the firmware is "in a better state" (the user's call).
 - The user said "Go" to a public GitHub Pages deployment (the workflow runs once the branch is merged).
 - Simulator is the primary target. Publish only after separate approval.
+- 2026-11-05, after playing 0.2 in the browser ("looks a lot better and sounds a lot better"): bites came too often
+  to do anything and catch rates were far too high. 0.3: default waits about 1-5 minutes per line (bluegill
+  45-150 s, bass 60-200, trout 50-170, catfish 90-300), wait knobs 5 s a click, strikes that spit the hook (20%
+  for a small fish up to 65% for a big rare one), and reeling during a run doubling the strain.
 - User-facing firmware evaluation should be possible through an existing browser
   firmware emulator site like MIKU-FM1, before physical-device testing. The next
   development milestone is a real BLACKWATER `.fwsc` loading in that emulator,

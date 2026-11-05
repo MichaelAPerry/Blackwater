@@ -217,7 +217,7 @@ int main(void)
     printf("personal-best key changes in 30 s: %u\n", key_changes);
     CHECK(key_changes >= 1);
     /* the fight: patient reeling lands fish; cranking through runs snaps lines; doing nothing throws the hook */
-    unsigned landed = 0, snapped = 0, thrown = 0;
+    unsigned landed = 0, snapped = 0, thrown = 0, spat = 0, strikes = 0;
     for (unsigned trial = 0; trial < 60; trial++)
     {
         fresh();
@@ -226,9 +226,16 @@ int main(void)
         e.track[1].wait_min = e.track[1].wait_max = 0;
         bw_cast(&e, 1);
         bw_transport(&e, 1);
-        while (bw_fish_state(&e, 1) != BW_FISH_BITE)
-            bw_render(&e, lr, 256, 4096);
-        CHECK(bw_hookset(&e, 1));
+        int set = 0;
+        for (unsigned tries = 0; tries < 50 && !set; tries++) /* a strike may not stick: wait for the next */
+        {
+            while (bw_fish_state(&e, 1) != BW_FISH_BITE)
+                bw_render(&e, lr, 256, 4096);
+            set = bw_hookset(&e, 1);
+            spat += !set;
+            strikes++;
+        }
+        CHECK(set);
         CHECK(bw_fish_state(&e, 1) == BW_FISH_FIGHT);
         int r = BW_FIGHT_ON, style = trial % 3;
         for (unsigned t = 0; t < 2000 && r == BW_FIGHT_ON; t++)
@@ -248,7 +255,9 @@ int main(void)
     }
     printf("fight results (landed/snapped/thrown by style) in the line below\n");
     printf("fights: patient %u/20 landed, cranking %u/20 snapped, idle %u/20 thrown\n", landed, snapped, thrown);
-    CHECK(landed >= 15 && snapped >= 10 && thrown >= 15); /* (shorter fights: a small fish can be hauled in) */
+    printf("strikes: %u of %u spat the hook\n", spat, strikes);
+    CHECK(spat * 6 >= strikes && spat * 2 <= strikes); /* some get away at the strike, most stick */
+    CHECK(landed >= 12 && snapped >= 14 && thrown >= 15); /* (shorter fights: a small fish can be hauled in) */
     /* a missed bite: the window closes */
     fresh();
     e.track[0].manual = 1;

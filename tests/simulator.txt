@@ -82,8 +82,8 @@ tap SEQ
 expect page 1
 turn K3 -1
 expect manual 0
-turn K1 -6
-turn K2 -20
+turn K1 -100
+turn K2 -300
 expect wait_min 0
 expect wait_max 0
 expect hooked 1
@@ -118,11 +118,16 @@ turn ALGO 1
 expect track 1
 tap SEQ
 expect page 1
-turn K1 -9
-turn K2 -28
+turn K1 -100
+turn K2 -300
 expect manual 1
 wait 300
 expect bite 1
+# a strike can spit the hook: strike again at the next bite (in a fight, REC only reels)
+tap REC
+wait 300
+tap REC
+wait 300
 tap REC
 expect fight 1
 shot fight.png

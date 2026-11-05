@@ -388,12 +388,12 @@ static void bw_knob(unsigned knob, int d)
     case BW_FISHING:
         if (knob == 0)
         {
-            t->wait_min = (uint16_t)bw_step_val(t->wait_min, d, 0, 600);
+            t->wait_min = (uint16_t)bw_step_val(t->wait_min, d * 5, 0, 600);
             if (t->wait_max < t->wait_min)
                 t->wait_max = t->wait_min;
         }
         if (knob == 1)
-            t->wait_max = (uint16_t)bw_step_val(t->wait_max, d, t->wait_min, 600);
+            t->wait_max = (uint16_t)bw_step_val(t->wait_max, d * 5, t->wait_min, 600);
         if (knob == 2)
             t->manual = (uint8_t)bw_step_val(t->manual, d, 0, 1);
         if (knob == 3)

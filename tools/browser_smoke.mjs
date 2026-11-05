@@ -161,6 +161,10 @@ try {
     await press('0');            // SEQ: fishing screen
     const fishing = await shot('3-fishing');
     assert.ok(!fishing.equals(cast), 'SEQ did not change the display');
+    // a real wait is minutes: for the test, the bluegill's K1/K2 (shortest, longest wait) down to 0, by mouse
+    await wheel(935, 120, -40);                                // KNOB1: the shortest (first: the longest stays above it)
+    await wheel(1028, 120, -40);                               // KNOB2: the longest
+    await shot('3b-fishing-no-wait');
 
     // play: answer the bites and reel in, as a player does, with REC (R), for forty seconds; screens on the way
     let shots = 0;
