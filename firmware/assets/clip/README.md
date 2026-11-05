@@ -17,3 +17,9 @@ before the phrase removed (cut at 0.575 s, inside the silence after it: the lead
 "fish" starts at about 0.585 s, found from the level and the hiss of each 10 ms), ended at 1.580 s before the next
 sound, 5 ms fade in and 15 ms fade out, mixed to mono and raised to a 28,000 peak (x2.59). 1.0 s. The user supplied
 it and decided to use it; it plays for rare fish only.
+
+## Notice
+
+The clip is used as a one-second sample in an original musical work. BLACKWATER is an unofficial fan project, not
+affiliated with, sponsored or endorsed by Jeremy Wade, Fish On!, River Monsters or Oxford Scientific Films. A rights
+holder's request to change or remove it is acted on at once (an issue on the project's GitHub).

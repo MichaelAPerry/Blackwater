@@ -76,7 +76,7 @@ page = '''<!doctype html><html lang="en"><meta charset="utf-8">
 <link rel="icon" href="icon.png"><meta property="og:title" content="BLACKWATER"><meta property="og:image" content="og.png">
 <meta property="og:description" content="Generative fish music for the M-VAVE FM-1, running in your browser.">
 <style>body{background:#060e0c;color:#ded6c2;font:16px system-ui;margin:24px auto;max-width:1100px;padding:0 16px}
-a{color:#e8aa46}img.hero{width:100%;height:auto;image-rendering:pixelated;border:1px solid #1e322c}iframe{width:100%;height:850px;border:1px solid #34534b}code{overflow-wrap:anywhere}</style>
+a{color:#e8aa46}img.hero{width:100%;height:auto;image-rendering:pixelated;border:1px solid #1e322c}iframe{width:100%;height:850px;border:1px solid #34534b}code{overflow-wrap:anywhere}.notice{font-size:13px;color:#8a9a88}</style>
 <img class="hero" src="hero.png" alt="A pixel-art river at night, a float on the water">
 <h1>BLACKWATER</h1><p>Four fish. Four FM voices. One river. Development build.</p>
 <p>This is the actual FM-1 firmware package running in the existing fm1-emu emulator.
@@ -93,6 +93,11 @@ K1-K4 are the panel's knobs (drag them).</p>
 <p><a href="emulator/?fw=blackwater&amp;mhz=240">Open the full emulator</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
  · <a href="build.json">Build and validation details</a></p>
 <p>Package SHA-256: <code>PACKAGE_HASH</code></p>
+<p class="notice">BLACKWATER is an unofficial fan project, not affiliated with, sponsored or endorsed by Jeremy Wade,
+Fish On!, River Monsters or Oxford Scientific Films. The FISH ON! portrait is an original pixel-art homage, not a
+photograph or an official image of anyone, and the one-second "Fish on!" sample is used briefly, as a sound in an
+original musical work. Rights holders who would like either changed or removed can open an issue on
+<a href="https://github.com/MichaelAPerry/Blackwater/issues">the project's GitHub</a>, and it will be done.</p>
 <footer>Firmware platform: <a href="https://github.com/charlesvestal/fm1-base">fm1-base</a> and
 <a href="https://github.com/hugelton/felucca-bsp">felucca-bsp</a>.
 Emulator: <a href="https://github.com/joakimeriksson/fm1-emu">fm1-emu by Joakim Eriksson</a>.

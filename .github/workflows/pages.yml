@@ -56,10 +56,10 @@ jobs:
       - name: Host tests
         run: PATH="$PWD/build/venv/bin:$PATH" sh tests/run_tests.sh && build/venv/bin/python tests/package_metadata_test.py
       - name: Device package
-        # BW_PUBLIC_SAFE=1: the public site leaves out the fish-on clip and the portrait until their owners give
-        # permission (docs/RIGHTS.md); set it to 0 once they have
+        # BW_PUBLIC_SAFE=1 would leave out the fish-on clip and the portrait (docs/RIGHTS.md); the owner's decision
+        # is to include them, with the notice on the page
         env:
-          BW_PUBLIC_SAFE: "1"
+          BW_PUBLIC_SAFE: "0"
         run: PATH="$PWD/build/venv/bin:$PATH" ./build.sh
       - name: Emulator (fm1-emu, pinned)
         run: ./tools/build_emulator.sh

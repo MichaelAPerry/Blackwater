@@ -94,3 +94,9 @@ four fish playing and the effects on, the audio takes about 56% of the chip's ti
 firmware in fm1-emu; not yet on a real FM-1). Screens show graphs where they can: level meters on the river, the FM
 routing diagram on EDIT, the envelope and LFO shapes, the theme's piano roll, a piano octave on SCALE, best-size
 bars in the catch log.
+
+## Notice
+
+BLACKWATER is an unofficial fan project, not affiliated with, sponsored or endorsed by Jeremy Wade, Fish On!, River
+Monsters or Oxford Scientific Films. The FISH ON! portrait is an original pixel-art homage; the one-second sample is
+a sound in an original musical work. Requests to change or remove either: an issue on the project's GitHub.

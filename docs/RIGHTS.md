@@ -12,14 +12,17 @@ The Fish On! team's message to the project's owner (about his buffalo photograph
 request to use *his* picture; it gives nothing in return. Permission for the clip and the likeness needs its own
 yes, in writing.
 
-## Until then
+## The owner's decision (2026-11-05)
 
-- The public site (`.github/workflows/pages.yml`) builds with `BW_PUBLIC_SAFE=1`: no clip, no portrait. The
-  FISH ON! strike still plays, with the rare fish itself in the portrait's place. Set it to `"0"` once permission
-  is given.
+The owner keeps both in the firmware and on the public site, as a one-second sample in an original work and an
+implied, homage likeness, with the notice above on the page and in the asset folders (`firmware/assets/clip/README.md`,
+`firmware/assets/art/NOTICE.md`): unofficial, not affiliated or endorsed, changed or removed on request. The Pages
+workflow builds with `BW_PUBLIC_SAFE=0`. Asking the Fish On! team anyway (the draft below) remains an option.
+
+## The switch, if ever needed
+
+- `BW_PUBLIC_SAFE=1` builds without the clip and the portrait; the FISH ON! strike then shows the rare fish itself.
 - The owner's own builds (`./build.sh`) keep both.
-- The two files are in this Git repository. If the repository is public, they are already published with it;
-  keeping them out of Git until permission (local files, `BW_CLIP_WAV` and the art folder) is the cautious choice.
 
 ## A request to send
 
