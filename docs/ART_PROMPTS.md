@@ -214,6 +214,10 @@ transparent background outside the circle. No text.
 
 ## UI kit (for a slicker interface)
 
+**In (2026-11-05):** all seven (U1-U7): the wordmark (river header, boot screen), page icons (every header), weather
+icons (header, fishing page), the burst (FISH ON!), the reel and rod (the fight), the frame (the catch card) and
+the water strip (the fight and FISH ON!).
+
 Same style reference as prompt 1, the same magenta-key and crisp-pixel rules. These replace drawn rectangles and
 words with art; each has a place waiting in the firmware.
 

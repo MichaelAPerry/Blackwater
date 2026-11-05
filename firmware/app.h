@@ -27,6 +27,8 @@ int app_backup_playing(void);
 void app_backup_flush(void);
 void app_backup_hold(int);
 void app_backup_restored(void);
+#define APP_SPLASH
+void app_splash(void);
 void app_init(void);
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12);
 void app_panic(void);

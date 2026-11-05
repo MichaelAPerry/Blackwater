@@ -29,7 +29,15 @@ SHEETS.update({
     'river': ('river.png', 240, 240, 3, 1, False),
     'props': ('props.png', 24, 24, 6, 3, True),
     'banner': ('fish_on.png', 150, 50, 1, 1, True),
-    'portrait': ('fish_on_portrait.png', 112, 112, 1, 1, False),  # the FISH ON! moment  # the splash scene, 3:1
+    'portrait': ('fish_on_portrait.png', 112, 112, 1, 1, False),  # the FISH ON! moment
+    # the UI kit (docs/ART_PROMPTS.md U1-U7)
+    'logo': ('logo.png', 132, 40, 1, 1, True),
+    'icons': ('icons.png', 16, 16, 6, 2, True),
+    'weather': ('weather.png', 16, 16, 4, 1, True),
+    'burst': ('strike.png', 64, 48, 4, 1, True),
+    'frames': ('frames.png', 24, 24, 3, 3, True),
+    'fight': ('fight.png', 48, 24, 4, 2, True),
+    'water': ('water.png', 240, 16, 1, 4, False),  # the splash scene, 3:1
 })
 
 
@@ -277,6 +285,8 @@ def main():
     lines.append('static const bw_sheet bw_art_props[1] = {%s};' % entry('props'))
     lines.append('static const bw_sheet bw_art_banner[1] = {%s};' % entry('banner'))
     lines.append('static const bw_sheet bw_art_portrait[1] = {%s};' % entry('portrait'))
+    for kit in ('logo', 'icons', 'weather', 'burst', 'frames', 'fight', 'water'):
+        lines.append('static const bw_sheet bw_art_%s[1] = {%s};' % (kit, entry(kit)))
     a.out.write_text('\n'.join(lines) + '\n')
     if not have:
         print('art: no sheets yet, the firmware draws placeholders')

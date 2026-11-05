@@ -60,7 +60,7 @@ static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 2, 1, 4, 1, 1, 4, 1, 3, 
 static struct
 {
     uint32_t buttons, keys, last_draw, message_until, popup_until, last_input, event_seq, fight_ms;
-    uint32_t fish_on_seen, fish_on_until;
+    uint32_t fish_on_seen, fish_on_until, reel_turns;
     uint8_t track, page, sub[BW_NPAGES], op, route_source, route_dest, patch_pick, slot_pick;
     uint8_t dirty, draw, held;
     int8_t preview[4];
@@ -670,6 +670,8 @@ static void bw_input(void)
         unsigned dt = now - bw_ui.fight_ms;
         bw_ui.fight_ms = now;
         int r = bw_fight(&bw, k, turn[EN_SELECT] + turn[EN_K1], dt);
+        if (turn[EN_SELECT] + turn[EN_K1] > 0)
+            bw_ui.reel_turns += (uint32_t)(turn[EN_SELECT] + turn[EN_K1]);
         if (r != BW_FIGHT_ON)
             bw_ui.draw = 1;
         turn[EN_SELECT] = turn[EN_K1] = 0;
@@ -924,11 +926,29 @@ static void bw_param_n(int32_t x, int32_t y, const char *label, int v, int max, 
     bw_num(t, v);
     bw_param(x, y, label, t, v, max, c);
 }
+static int bw_kit(const bw_sheet *sh, unsigned cell, int32_t x, int32_t y, int32_t scale)
+{
+    if (!sh->px)
+        return 0;
+    bw_sheet_draw2(sh, cell, x, y, scale, 0);
+    return 1;
+}
+static unsigned bw_weather_icon(void) /* the icons: day, dusk, night, storm */
+{
+    static const uint8_t cell[BW_NWEATHER] = {0, 1, 2, 3, 0};
+    return cell[bw_weather(&bw)];
+}
 static void bw_header(const char *title, uint16_t c, const char *right)
 {
     char t[40];
     R(0, 0, 240, 48, C_BG);
-    T(6, 1, &FONT_M, title, c);
+    int32_t tx = 6;
+    if (bw_ui.page == BW_RIVER && bw_kit(&bw_art_logo[0], 0, 2, 3, 1))
+        tx = -1; /* the wordmark is the title */
+    else if (bw_kit(&bw_art_icons[0], bw_ui.page, 4, 0, 2))
+        tx = 42;
+    if (tx >= 0)
+        T(tx, 1, &FONT_M, title, c);
     TR(234, 4, &FONT_XS, bw_species_names[bw_ui.track], bw_color(bw_ui.track));
     t[0] = 0;
     bw_cat(t, sizeof t, "BPM ");
@@ -937,11 +957,16 @@ static void bw_header(const char *title, uint16_t c, const char *right)
     bw_cat(t, sizeof t, bw_key_names[bw.song.key]);
     bw_cat(t, sizeof t, " ");
     bw_cat(t, sizeof t, bw_scale_names[bw.song.scale]);
-    if (bw_ui.message[0] && (int32_t)(bw_ui.message_until - plat_ms()) > 0)
-        T(6, 29, &FONT_XS, bw_ui.message, C_PINK);
+    int32_t lx = tx > 6 ? tx : 6;
+    if (tx < 0) /* RIVER: the wordmark fills the left; the state on the right only */
+        ;
+    else if (bw_ui.message[0] && (int32_t)(bw_ui.message_until - plat_ms()) > 0)
+        T(lx, 29, &FONT_XS, bw_ui.message, C_PINK);
     else
-        T(6, 29, &FONT_XS, t, C_YEL);
+        T(lx, 29, &FONT_XS, t, C_YEL);
     TR(234, 29, &FONT_XS, right, bw.playing ? C_YEL : C_MUTE);
+    if (!(bw_ui.message[0] && (int32_t)(bw_ui.message_until - plat_ms()) > 0)) /* (a message needs the room) */
+        bw_kit(&bw_art_weather[0], bw_weather_icon(), 234 - text_w(&FONT_XS, right) - 20, 27, 1);
     if (bw_ui.dirty)
         T(226, 16, &FONT_XS, "*", C_PINK);
     for (int32_t x = 0; x < 240; x += 8) /* the waterline */
@@ -1035,8 +1060,25 @@ static void bw_draw_popup(void)
 {
     const bw_event *ev = &bw_ui.popup;
     char t[24];
-    R(8, 104, 224, 88, C_PANEL);
-    R(8, 104, 224, 2, ev->rare ? C_GOLD : bw_color(ev->track));
+    if (bw_art_frames[0].px) /* the wooden frame: nine pieces, the edges repeated */
+    {
+        const bw_sheet *fr = &bw_art_frames[0];
+        for (int32_t y = 104; y < 192; y += 24)
+            for (int32_t x = 8; x < 232; x += 24)
+            {
+                int32_t xx = x > 208 ? 208 : x, yy = y > 168 ? 168 : y;
+                unsigned col = xx == 8 ? 0 : xx == 208 ? 2 : 1, row = yy == 104 ? 0 : yy == 168 ? 2 : 1;
+                bw_sheet_draw(fr, row * 3 + col, xx, yy, 0, 0);
+            }
+        R(15, 111, 210, 74, C_BG);
+        if (ev->rare)
+            R(15, 111, 210, 1, C_GOLD);
+    }
+    else
+    {
+        R(8, 104, 224, 88, C_PANEL);
+        R(8, 104, 224, 2, ev->rare ? C_GOLD : bw_color(ev->track));
+    }
     if (ev->result == BW_FIGHT_LANDED)
     {
         const bw_sheet *pt = &bw_art_portraits[ev->species % BW_SPECIES];
@@ -1125,6 +1167,9 @@ static void bw_draw_fish_on(uint32_t t)
         L(64 + sx + (int32_t)(co * 40.0f), 116 + sy + (int32_t)(si * 40.0f), 64 + sx + (int32_t)(co * 260.0f),
           116 + sy + (int32_t)(si * 260.0f), i & 1 ? RGB(22, 44, 38) : RGB(40, 66, 52));
     }
+    /* the burst on the water, behind everything: star, explosion, spray, rings */
+    if (t < 1300)
+        bw_kit(&bw_art_burst[0], t < 330 ? 0u : t < 560 ? 1u : t < 860 ? 2u : 3u, 56, 132 + sy, 2);
     /* the portrait: in from the left, overshooting */
     int32_t px = -120 + (int32_t)(132.0f * bw_ease_back((float)(t - 260) / 260.0f));
     if (bw_art_portrait[0].px)
@@ -1151,9 +1196,10 @@ static void bw_draw_fish_on(uint32_t t)
         if (y < 238 && y > 48)
             R(x + sx, y + sy, i % 3 ? 2 : 3, i % 3 ? 2 : 3, i & 1 ? C_TXT : RGB(150, 200, 210));
     }
-    /* the water line, choppy */
-    for (int32_t x = 0; x < 240; x += 4)
-        R(x, 226 + (int32_t)(3.0f * fm_sinf((float)x * 0.09f + (float)t * 0.012f)), 4, 14, RGB(16, 40, 44));
+    /* the water line */
+    if (!bw_kit(&bw_art_water[0], t / 120u % 4u, 0, 224, 1))
+        for (int32_t x = 0; x < 240; x += 4)
+            R(x, 226 + (int32_t)(3.0f * fm_sinf((float)x * 0.09f + (float)t * 0.012f)), 4, 14, RGB(16, 40, 44));
 }
 /* the wave that washes FISH ON! away: its top edge at row y (the page shows beneath), foam on the crest */
 static void bw_draw_wave(int32_t y, uint32_t t)
@@ -1169,7 +1215,7 @@ static void bw_draw_wave(int32_t y, uint32_t t)
 static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned sel, uint16_t c)
 {
     int depth[6], col_n[6] = {0, 0, 0, 0, 0, 0}, slot[6], xs[6], ys[6];
-    for (int i = 5; i >= 0; i--) /* a modulator's depth: one past the deepest operator it feeds */
+    for (int i = 0; i < 6; i++) /* a modulator's depth: one past the deepest (lower-numbered) operator it feeds */
     {
         depth[i] = 0;
         for (int j = 0; j < i; j++)
@@ -1181,6 +1227,7 @@ static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned
     R(6, y0, 228, h, C_PANEL);
     for (int i = 0; i < 6; i++)
     {
+        depth[i] = depth[i] > 5 ? 5 : depth[i];
         int32_t bh = (h - 4) / (col_n[depth[i]] > 0 ? col_n[depth[i]] : 1);
         xs[i] = 198 - depth[i] * 38;
         ys[i] = y0 + 2 + slot[i] * bh + (bh - 7) / 2;
@@ -1256,7 +1303,9 @@ static void bw_draw_page(uint32_t ms)
         if (st == BW_FISH_FIGHT)
         {
             float tn = bw.fight_tension[k], d = bw.fight_dist[k];
-            bw_draw_fish(20, 60 + (int32_t)(ms / 80u % 3u), bw.fish[k], ms / 120u % 4u, 0);
+            bw_draw_fish(20, 60 + (int32_t)(ms / 80u % 3u), bw.fish[k], 7u + ms / 120u % 3u, 0);
+            /* the rod bends with the tension; the reel turns as you wind */
+            bw_kit(&bw_art_fight[0], 4u + (unsigned)fm_minf(3.0f, tn / 26.0f), 186, 86, 1);
             T(80, 54, &FONT_B, bw.fish_rare[k] ? "SOMETHING BIG!" : "FISH ON!", bw.fish_rare[k] ? C_GOLD : C_YEL);
             T(80, 74, &FONT_XS, bw.fight_run[k] > 0.0f ? "IT'S RUNNING - EASE OFF" : "REEL: SELECT OR K1",
               bw.fight_run[k] > 0.0f ? C_PINK : C_MUTE);
@@ -1267,8 +1316,10 @@ static void bw_draw_page(uint32_t ms)
             T(8, 146, &FONT_XS, "DISTANCE", C_MUTE);
             R(8, 166, 224, 10, C_BAR);
             R(8, 166, (int32_t)(224.0f * fm_clampf(d / fm_maxf(bw.fight_max[k], 1.0f), 0, 1)), 10, c);
-            T(8, 196, &FONT_XS, "TOO TIGHT SNAPS THE LINE", C_MUTE);
-            T(8, 214, &FONT_XS, "TOO SLACK THROWS THE HOOK", C_MUTE);
+            int reel = bw_kit(&bw_art_fight[0], bw_ui.reel_turns % 4u, 4, 186, 1);
+            T(reel ? 58 : 8, 186, &FONT_XS, "TOO TIGHT SNAPS THE LINE", C_MUTE);
+            T(reel ? 58 : 8, 202, &FONT_XS, "TOO SLACK THROWS THE HOOK", C_MUTE);
+            bw_kit(&bw_art_water[0], ms / 160u % 4u, 0, 224, 1);
             break;
         }
         int32_t depth_y = 52 + (int32_t)tr->depth * 9;
@@ -1303,8 +1354,13 @@ static void bw_draw_page(uint32_t ms)
             static const uint8_t icon[BW_NBAIT] = {11, 12, 13, 0}; /* worm, crankbait, spinner, jig: the hook */
             bw_prop(icon[tr->bait], 208, 186);
         }
-        T(6, 196, &FONT_XS, "WEATHER", C_MUTE);
-        T(70, 196, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_YEL);
+        if (bw_kit(&bw_art_weather[0], bw_weather_icon(), 6, 193, 1))
+            T(28, 196, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_YEL);
+        else
+        {
+            T(6, 196, &FONT_XS, "WEATHER", C_MUTE);
+            T(70, 196, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_YEL);
+        }
         T(6, 214, &FONT_XS, "REC: CAST / PULL IN / SET THE HOOK", C_MUTE);
         break;
     }
@@ -1693,6 +1749,22 @@ static void bw_draw(void)
     plat_leds(leds, keyleds);
     bw_ui.last_draw = ms;
     bw_ui.draw = 0;
+}
+/* the boot screen: the river at night, the wordmark, the line */
+void app_splash(void)
+{
+    for (unsigned band = 0; band < 5; band++)
+    {
+        bw_oy = (int32_t)band * 48;
+        cv_begin(240, 48, C_BG);
+        if (!bw_kit(&bw_art_river[0], 1, 0, 0, 1))
+            R(0, 0, 240, 240, C_BG);
+        R(0, 70, 240, 92, RGB(6, 14, 12));
+        if (!bw_kit(&bw_art_logo[0], 0, 54, 82, 1))
+            T(60, 96, &FONT_M, APP_NAME, C_TXT);
+        TS(64, 132, &FONT_XS, "GENERATIVE FISH MUSIC", C_YEL);
+        lcd_blit(0, band * 48, 240, 48, cv_px);
+    }
 }
 void app_ui_init(void)
 {
