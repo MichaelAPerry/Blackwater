@@ -19,7 +19,7 @@
   followed by a timed player action.
 - Jeremy Wade "fish on" clip: the user will supply it (under 12 seconds, possibly 1 s) and takes responsibility
   for its use; it plays for **rare fish only**. No clip is in the repository yet.
-- 2026-11-04, the user approved **the whole expanded feature set** in `docs/FEATURE_PROPOSAL.md` (A1–A6, B1–B7,
+- 2026-11-04, the user approved **the whole expanded feature set** in `docs/history/FEATURE_PROPOSAL.md` (A1–A6, B1–B7,
   C1–C6, D1–D4, E), plus **effects**, an audit of the keys with FM manipulation on keys left blank, and **rare fish
   in each slot**: Crappie (bluegill slot), Peacock Bass (bass), Brook Trout (brown trout), Flathead Catfish
   (catfish; the common catfish is therefore the channel catfish). Art is being made by the user from
@@ -81,7 +81,7 @@ See `docs/MANUAL.md` for the player's view and `docs/DEVELOPMENT.md` for the sou
   emulator and Dinghy/Felucca as its firmware ancestry. fm1-emu's Rust/Wasm browser
   build is distinct from fm1-base's Emscripten application simulator. Retain the
   approved fm1-base foundation while verifying package compatibility; do not migrate
-  to Dinghy just to copy the example site's appearance. See `docs/SIMULATOR_WORKFLOW.md`.
+  to Dinghy just to copy the example site's appearance. See `docs/history/SIMULATOR_WORKFLOW.md`.
 
 ## Communication correction
 

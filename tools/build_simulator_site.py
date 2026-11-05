@@ -78,7 +78,8 @@ page = '''<!doctype html><html lang="en"><meta charset="utf-8">
 <style>body{background:#060e0c;color:#ded6c2;font:16px system-ui;margin:24px auto;max-width:1100px;padding:0 16px}
 a{color:#e8aa46}img.hero{width:100%;height:auto;image-rendering:pixelated;border:1px solid #1e322c}iframe{width:100%;height:850px;border:1px solid #34534b}code{overflow-wrap:anywhere}.notice{font-size:13px;color:#8a9a88}</style>
 <img class="hero" src="hero.png" alt="A pixel-art river at night, a float on the water">
-<h1>BLACKWATER</h1><p>Four fish. Four FM voices. One river. Development build.</p>
+<h1>BLACKWATER</h1><p>Generative fish music for the M-VAVE FM-1. Four fish, four FM voices, one river: cast a line
+and that fish plays; catch it and its theme develops. Development build, not yet tested on a physical FM-1.</p>
 <p>This is the actual FM-1 firmware package running in the existing fm1-emu emulator.
 It passed native, Node-Wasm and automated Chromium checks before this page was built.
 It has not been tested on a physical FM-1.</p>
@@ -90,7 +91,8 @@ K1-K4 are the panel's knobs (drag them).</p>
 <p>The emulator runs the FM-1's chip at its own 240 MHz: a slower computer may stutter (the page's clock menu).</p>
 <p>The rare fish (crappie, peacock bass, brook trout, flathead) borrow their cousins' sprites until their own art is in; the fish-on clip plays only in builds that include one.</p>
 <iframe src="emulator/?fw=blackwater&amp;mhz=240&amp;embed=1" title="BLACKWATER firmware in fm1-emu" allow="autoplay"></iframe>
-<p><a href="emulator/?fw=blackwater&amp;mhz=240">Open the full emulator</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
+<p><a href="emulator/?fw=blackwater&amp;mhz=240">Open the full emulator</a> ·
+<a href="https://github.com/MichaelAPerry/Blackwater/blob/main/docs/MANUAL.md">Manual</a> · <a href="firmware/blackwater.fwsc">Download development package</a>
  · <a href="build.json">Build and validation details</a></p>
 <p>Package SHA-256: <code>PACKAGE_HASH</code></p>
 <p class="notice">BLACKWATER is an unofficial fan project, not affiliated with, sponsored or endorsed by Jeremy Wade,

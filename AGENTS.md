@@ -1,6 +1,6 @@
 # BLACKWATER development rules
 
-Read `PROJECT.md`, `docs/TECHNICAL_AUDIT.md`, and recent Git history before work.
+Read `PROJECT.md`, `docs/history/TECHNICAL_AUDIT.md`, and recent Git history before work.
 
 The user owns product direction and approves features, interface behavior, priorities,
 and major architecture choices. Research and recommendations do not authorize adoption
