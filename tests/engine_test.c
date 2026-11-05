@@ -66,6 +66,7 @@ static void fresh(void)
     for (unsigned k = 0; k < 4; k++)
     {
         e.track[k].send_rev = e.track[k].send_dly = e.track[k].send_cho = 0;
+        e.track[k].manual = 0; /* AUTO unless a test asks for TIMED (the firmware's default is TIMED) */
     }
     midi_n = clocks = rare_hooks = 0;
 }
@@ -106,12 +107,12 @@ int main(void)
         }
     /* the scale: A minor from the bass's register; degree 2 is a minor third up, 7 an octave */
     fresh();
-    CHECK(bw_note_of(&e, BW_BASS, 0, 0) == 48 + 9);
-    CHECK(bw_note_of(&e, BW_BASS, 2, 0) == 48 + 9 + 3);
-    CHECK(bw_note_of(&e, BW_BASS, 7, 0) == 48 + 9 + 12);
-    CHECK(bw_note_of(&e, BW_BASS, -1, 0) == 48 + 9 - 2);
+    CHECK(bw_note_of(&e, BW_BASS, 0, 0) == 36 + 9);
+    CHECK(bw_note_of(&e, BW_BASS, 2, 0) == 36 + 9 + 3);
+    CHECK(bw_note_of(&e, BW_BASS, 7, 0) == 36 + 9 + 12);
+    CHECK(bw_note_of(&e, BW_BASS, -1, 0) == 36 + 9 - 2);
     e.song.scale = 6; /* minor pentatonic: five a cycle */
-    CHECK(bw_note_of(&e, BW_BASS, 5, 0) == 48 + 9 + 12);
+    CHECK(bw_note_of(&e, BW_BASS, 5, 0) == 36 + 9 + 12);
     /* playing: all four fish play, on their MIDI channels, with the clock out at 24 a beat */
     fresh();
     e.song.tempo = 120;
@@ -254,7 +255,7 @@ int main(void)
     e.track[0].wait_min = e.track[0].wait_max = 0;
     bw_cast(&e, 0);
     bw_transport(&e, 1);
-    render(172 * 3, 0);
+    render(172 * 5, 0); /* past the three-second window */
     CHECK(e.log.missed >= 1);
     /* live keys, macros, the arpeggiator */
     fresh();

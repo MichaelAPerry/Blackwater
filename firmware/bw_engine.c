@@ -54,7 +54,7 @@ const char *const bw_macro_names[BW_NMACRO] = {"BRIGHT", "DARK", "GROWL", "METAL
                                                "STUTTER", "HALF", "CUT", "OCTAVE", "THROW"};
 static const uint8_t bw_arp_ticks[5] = {96, 48, 32, 24, 12};
 /* each fish's register (MIDI note of its root at octave 0), steps per beat, gate (% of the step) and range */
-static const uint8_t bw_base_note[4] = {72, 48, 60, 36}, bw_spb[4] = {4, 4, 3, 2}, bw_gate_pct[4] = {50, 65, 95, 98};
+static const uint8_t bw_base_note[4] = {60, 36, 48, 48}, bw_spb[4] = {4, 4, 3, 2}, bw_gate_pct[4] = {50, 65, 95, 98};
 static const int8_t bw_deg_lo[4] = {-3, -7, -4, -7}, bw_deg_hi[4] = {14, 9, 14, 7};
 static const uint8_t bw_mono[4] = {0, 1, 0, 1};
 
@@ -432,7 +432,7 @@ void bw_track_defaults(bw_engine *e, unsigned k)
 {
     static const uint8_t pan[4] = {38, 50, 64, 50}, rev[4] = {25, 8, 35, 30}, dly[4] = {20, 0, 15, 5},
                          cho[4] = {0, 0, 30, 10}, drive[4] = {0, 12, 0, 8}, vol[4] = {72, 80, 68, 82};
-    static const uint16_t wmin[4] = {5, 8, 10, 20}, wmax[4] = {20, 30, 40, 60};
+    static const uint16_t wmin[4] = {6, 9, 8, 14}, wmax[4] = {20, 28, 24, 40};
     bw_track *t = &e->track[k];
     unsigned char *p = (unsigned char *)t;
     for (unsigned i = 0; i < sizeof *t; i++)
@@ -459,6 +459,7 @@ void bw_track_defaults(bw_engine *e, unsigned k)
     }
     t->wait_min = wmin[k];
     t->wait_max = wmax[k];
+    t->manual = 1; /* TIMED: the bobber dips, you set the hook and fight it */
     t->bait = bw_fish_data[k].bait;
     t->depth = bw_fish_data[k].depth;
     bw_theme_generate(e, k, 0x5EED0000u + k * 7919u);
@@ -991,7 +992,7 @@ static void bw_fishing(bw_engine *e)
             if (e->track[k].manual)
             {
                 e->hooked_state[k] = BW_FISH_BITE;
-                e->bite_until[k] = e->clock + 2 * BW_RATE;
+                e->bite_until[k] = e->clock + 3 * BW_RATE; /* three seconds to answer */
             }
             else
             {
@@ -1261,7 +1262,7 @@ static void bw_voice_prepare(bw_engine *e, bw_voice *v)
     static const float inv[7] = {1.0f, 1.0f, 0.5f, 1.0f / 3.0f, 0.25f, 0.2f, 1.0f / 6.0f};
     unsigned k = v->track & 3u, i, j, carriers = 0;
     const bw_patch *p = &e->track[k].patch;
-    float ms = e->mod_scale[k] * 0.02f, pm = e->pitch_scale[k], metal = e->metal[k], fba = e->fb_add[k];
+    float ms = e->mod_scale[k] * 0.012f, pm = e->pitch_scale[k], metal = e->metal[k], fba = e->fb_add[k];
     for (i = 0; i < 6; i++)
         carriers += p->carrier[i] != 0;
     for (i = 0; i < 6; i++)
@@ -1269,7 +1270,7 @@ static void bw_voice_prepare(bw_engine *e, bw_voice *v)
         const bw_operator *o = &p->op[i];
         v->gain[i] = (float)o->level * 0.01f * (1.0f - (float)o->velocity * 0.01f * (1.0f - v->velocity));
         v->cw[i] = (float)p->carrier[i] * 0.01f * inv[carriers];
-        v->fb[i] = (float)o->feedback * 0.02f + fba;
+        v->fb[i] = (float)o->feedback * 0.012f + fba;
         v->inc[i] = v->increment[i] * pm * (p->carrier[i] ? 1.0f : metal);
         v->nsrc[i] = 0;
         for (j = i + 1; j < 6; j++)

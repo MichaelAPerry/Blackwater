@@ -10,7 +10,9 @@ tap SEQ
 turn K1 -20
 turn K2 -60
 expect wait_max 0
-tap REC
+turn K3 -1
+expect manual 0
+expect hooked 1
 tap PLAY
 wav clip.wav
 wait 4000

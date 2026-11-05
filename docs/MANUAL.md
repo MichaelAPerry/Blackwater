@@ -17,16 +17,18 @@ one key, scale and chord progression (SCALE), so their themes stay in harmony as
 
 ## Fishing
 
-1. Choose a fish with ALGORITHM, press **REC** to cast: its part joins the music once PLAY is on.
-2. On the **FISHING** page (SEQ): K1/K2 the shortest and longest wait (0–600 s), K3 AUTO or TIMED, K4 the bait;
-   PRESETS the depth. The fish's own depth, its preferred bait and the weather shorten the wait; the rare fish
-   have their own preferences (a flathead likes the bottom and a jig).
-3. **AUTO:** the fish is caught when it bites. **TIMED:** the bobber nibbles, then plunges: press REC within two
-   seconds to set the hook, then **reel with SELECT (or K1)**. Keep the line tension in the green; ease off while
-   the fish runs. Too tight snaps the line, too slack throws the hook.
-4. A catch shows its card: species, length, weight, and what it did to the music. Sizes are each species' typical
-   range, with the odd trophy beyond it; weights from length.
-5. **REC** again with the line in the water pulls it in (that fish goes quiet).
+1. All four lines start in the water: press **PLAY** and the whole river plays. **REC** on a fish whose line is in
+   the water pulls it in (that fish goes quiet); REC again casts it.
+2. The bobbers bob; a nibble shakes one; a **bite** pulls it under, the lane flashes and REC blinks. Press **REC**
+   within three seconds: it answers whichever fish is biting and that fish becomes the chosen one.
+3. The fight: **reel with SELECT, K1 or REC** (the arrow keys or R in the browser). Keep the line tension in the
+   green and ease off while the fish runs: too tight snaps the line, too slack throws the hook. The rod bends with
+   the tension.
+4. A catch shows in the header for a few seconds (species, length, a new best) and its lane flashes; nothing covers
+   the screen. Its theme has changed: hear it on the next pass.
+5. On the **FISHING** page (SEQ): K1/K2 the shortest and longest wait (0–600 s), K3 TIMED or AUTO (AUTO lands fish by
+   itself), K4 the bait; PRESET the depth. The fish's own depth, its bait and the weather shorten the wait; the rare
+   fish have their own (a flathead likes the bottom and a jig).
 
 A rare fish taking the line is the FISH ON! strike (1.6 s): the bobber yanked under, a flash and a shake, the
 portrait slamming in, FISH and ON!, spray, then a wave washing it away; with the clip (GLOBAL page 2: clip on/off,
@@ -35,7 +37,7 @@ level).
 ## The theme (SEQ again)
 
 A piano roll of the fish's current theme. Page 1: K1 length (4–32 steps), K2 density (notes skipped at random), K3
-octave. Page 2 (PRESETS), turn right to act: K1 **release** the last catch (undo its change), K2 back to the
+octave, K4 mute. Page 2 (PRESETS), turn right to act: K1 **release** the last catch (undo its change), K2 back to the
 **home** theme, K3 make the current theme the home, K4 **record** from the white keys for one pass (left: stop).
 
 What a catch does depends on the fish (the bluegill ornaments and leaps, the bass shifts rhythm and leaves space,
@@ -46,9 +48,9 @@ rhythmic, spinner pitch, jig structure). Small fish change one thing, big ones t
 
 | Control | Does |
 | --- | --- |
-| HOME | RIVER (all four lanes); again: CATCH LOG (all eight species; PRESETS: misses, snaps, releases) |
+| HOME | RIVER: K1-K4 each fish's level, PRESET the weather; again: CATCH LOG (all eight species; PRESET: misses, snaps, releases) |
 | SEQ | FISHING; again: THEME |
-| REC | cast / pull in / set the hook |
+| REC | set the hook on a biting fish (any lane); reel in a fight; otherwise pull the chosen fish's line in, or cast it |
 | PLAY | start / stop |
 | SCL (SEL) | SCALE: K1 key, K2 scale (minor, dorian, major, mixolydian, harmonic minor, phrygian, minor pentatonic, blues), K3 chords (off, i–VI–III–VII, i–iv–v–i, i–VII–VI–VII, I–V–vi–IV, 12-bar), K4 swing |
 | EDIT | FM EDIT, four pages (PRESETS): operator (ratio, level, feedback, algorithm), frequency (fixed, Hz, velocity, output), routing (from, into, amount, output), patch (choose, load, store) |
@@ -60,7 +62,7 @@ rhythmic, spinner pitch, jig structure). Small fish change one thing, big ones t
 | SAVE | save this slot (with the catch log and settings) |
 | ALGORITHM | choose the fish |
 | SELECT | pages (on EDIT and ENVELOPE: the operator, then on past the sixth); in a fight: reel in |
-| PRESETS | the page's sub-page; on FISHING: depth |
+| PRESETS | the page's sub-page; RIVER the weather, FISHING the depth, SCALE the key, LFO the target, ARP the mode, ENVELOPE the operator |
 | K1–K4 | the page's four values |
 | MASTER | volume |
 | OCT- / OCT+ | the keyboard's octave |
