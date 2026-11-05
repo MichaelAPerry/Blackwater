@@ -123,11 +123,18 @@ try {
     const barAfter = await part('k1-bar-after', 211, 29);
     assert.ok(!barAfter.equals(barBefore), 'K1 (mouse) did not change the knob bar');
     await wheel(935, 120, -5);
-    const headBefore = await part('preset-head-before', 0, 32);
-    await wheel(110, 295, 1);                                  // PRESETS
-    const headAfter = await part('preset-head-after', 0, 32);
-    assert.ok(!headAfter.equals(headBefore), 'PRESET (mouse) did not change the header (the weather)');
-    await wheel(110, 295, -1);
+    // PRESETS: the weather (the header's icon and a message); a turn may land between two of the page's frames,
+    // so up to three tries, each one kept as evidence
+    let presetChanged = false;
+    for (let i = 0; i < 3 && !presetChanged; i++) {
+        const headBefore = await part(`preset-head-before-${i}`, 0, 47);
+        await wheel(110, 295, 1);                              // PRESETS
+        await page.waitForTimeout(400);
+        const headAfter = await part(`preset-head-after-${i}`, 0, 47);
+        presetChanged = !headAfter.equals(headBefore);
+        log('preset try', {try: i, changed: presetChanged});
+    }
+    assert.ok(presetChanged, 'PRESET (mouse) did not change the header (the weather), three tries');
     log('mouse: K1 and PRESET change the screen');
     // encoders, as the page's keys turn them (fm1-emu: arrows left/right SELECT, up/down PRESETS, , . ALGORITHM)
     const turn = async (key, name) => { await page.keyboard.press(key); await page.waitForTimeout(400); return lcdShot(page, name); };
