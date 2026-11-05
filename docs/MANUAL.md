@@ -22,21 +22,24 @@ one key, scale and chord progression (SCALE), so their themes stay in harmony as
   on this page**.
 - **Bottom:** the knob bar: what **K1-K4** do here, their values and a line for each. On the river they are the
   four fish's levels.
-- The version (0.2 and on) shows on the boot screen, GLOBAL and HELP.
+- The version (0.2 and on; now 0.3) shows on the boot screen, GLOBAL and HELP.
 
 ## Fishing
 
 1. All four lines start in the water: press **PLAY** and the whole river plays. **REC** on a fish whose line is in
    the water pulls it in (that fish goes quiet); REC again casts it.
 2. The bobbers bob; a nibble shakes one; a **bite** pulls it under, the lane flashes and REC blinks. Press **REC**
-   within three seconds: it answers whichever fish is biting and that fish becomes the chosen one.
+   within three seconds: it answers whichever fish is biting and that fish becomes the chosen one. Not every strike
+   sticks: small fish usually hold, big ones and the rare fish often spit the hook ("IT GOT AWAY"). Each line waits
+   about one to five minutes between bites (the catfish longest), so with all four in the water a bite comes every
+   half minute or so.
 3. The fight: **reel with SELECT, K1 or REC** (the arrow keys or R in the browser); you can change pages meanwhile,
    the fight goes on. Keep the line tension in the
-   green and ease off while the fish runs: too tight snaps the line, too slack throws the hook. The rod bends with
-   the tension.
+   green and ease off while the fish runs: reeling against a run strains the line twice as hard, so cranking
+   through it snaps the line; too slack throws the hook. The rod bends with the tension.
 4. A catch shows in the header for a few seconds (species, length, a new best) and its lane flashes; nothing covers
    the screen. Its theme has changed: hear it on the next pass.
-5. On the **FISHING** page (SEQ): K1/K2 the shortest and longest wait (0–600 s), K3 TIMED or AUTO (AUTO lands fish by
+5. On the **FISHING** page (SEQ): K1/K2 the shortest and longest wait (0–600 s, 5 s a click), K3 TIMED or AUTO (AUTO lands fish by
    itself), K4 the bait; PRESET the depth. The fish's own depth, its bait and the weather shorten the wait; the rare
    fish have their own (a flathead likes the bottom and a jig).
 
