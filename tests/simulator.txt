@@ -1,0 +1,175 @@
+# The real BLACKWATER app on fm1-base's host simulator: controls, screens, sound, fishing, saves.
+wait 600
+expect valid 1
+expect playing 0
+expect page 0
+shot river.png
+# FM edit: an operator's level, then a white key plays the fish through the firmware's own render.
+tap EDIT
+expect page 5
+turn K2 -10
+expect level 72
+key 12 down
+wav audition.wav
+wait 400
+wavstop
+expect peak_db_min -40
+key 12 up
+shot edit.png
+# The patch library: BELL, the second factory patch.
+turn PRESET 3
+expect sub 3
+turn K1 1
+turn K2 1
+expect level 80
+# Effects: this fish's reverb send, then the reverb's level.
+tap FX
+expect page 8
+turn K1 5
+expect send_rev 30
+tap FX
+expect sub 1
+turn K3 -10
+expect rev_level 60
+shot effects.png
+# Scale: key and mode for every fish.
+tap SEL
+expect page 4
+turn K1 2
+expect key 11
+turn K2 1
+expect scale 1
+shot scale.png
+# LFO.
+tap LFO
+expect page 7
+turn K2 10
+expect lfo_depth 10
+shot lfo.png
+# The arpeggiator: ARP again cycles OFF -> ON -> LATCH -> OFF.
+tap ARP
+expect page 9
+tap ARP
+expect arp 1
+key 0 down
+key 4 down
+wait 600
+expect voices >0
+key 0 up
+key 4 up
+tap ARP
+expect arp 2
+tap ARP
+expect arp 0
+# A black key: BRIGHT, held.
+key 1 down
+expect macros 1
+key 1 up
+expect macros 0
+# Fishing, automatic, no wait: catches change the theme.
+tap SEQ
+expect page 1
+turn K1 -5
+turn K2 -20
+expect wait_min 0
+expect wait_max 0
+tap REC
+expect hooked 1
+tap PLAY
+expect playing 1
+wav fishing.wav
+wait 1500
+wavstop
+expect catches >0
+expect peak_db_min -45
+expect midi_out >0
+expect clocks_out >0
+shot catch.png
+tap REC
+expect hooked 0
+tap SEQ
+expect page 2
+wait 120
+shot theme.png
+expect has_prev 1
+turn PRESET 1
+expect sub 1
+turn K1 1
+expect released 1
+expect has_prev 0
+tap HOME
+tap HOME
+expect page 3
+shot log.png
+# Timed on the bass: a bite, the hook set, the fight on SELECT.
+turn ALGO 1
+expect track 1
+tap SEQ
+expect page 1
+turn K1 -8
+turn K2 -30
+turn K3 1
+expect manual 1
+tap REC
+wait 300
+expect bite 1
+tap REC
+expect fight 1
+shot fight.png
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+expect fight 1
+expect page 1
+wait 6000
+expect fight 0
+# Saved: sessions, patches, the catch log; the river starts stopped, lines out of the water.
+tap PLAY
+expect playing 0
+tap SAVE
+expect dirty 0
+expect store_writes >2
+reboot
+wait 600
+expect playing 0
+expect hooked 0
+expect catches >0
+expect scale 1
+expect send_rev 30
+expect level 80
+# Slots: save into slot 2; units.
+tap GLO
+expect page 10
+turn PRESET 2
+expect sub 2
+turn K1 1
+turn K3 1
+expect slot 1
+turn PRESET -1
+turn K1 1
+expect units 1
+tap HOME
+tap HOME
+shot log_inches.png
+# A failed save is reported and leaves the session unsaved.
+tap EDIT
+turn K2 1
+expect dirty 1
+flash_fail 1
+tap SAVE
+expect dirty 1
+flash_fail 0
+tap SAVE
+expect dirty 0
+# (a save's flash writes take a moment: a tap during them is not seen)
+wait 300
+tap HOME
+expect page 0
+turn SELECT 20
+expect page 11
+shot help.png

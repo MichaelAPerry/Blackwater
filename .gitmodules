@@ -1,0 +1,6 @@
+[submodule "platform/fm1-base"]
+	path = platform/fm1-base
+	url = https://github.com/charlesvestal/fm1-base.git
+[submodule "platform/fm1-emu"]
+	path = platform/fm1-emu
+	url = https://github.com/joakimeriksson/fm1-emu.git

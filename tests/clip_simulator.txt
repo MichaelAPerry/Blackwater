@@ -1,0 +1,25 @@
+# The app with a synthetic test clip built in (tests/run_tests.sh): "fish on" plays for rare fish only.
+wait 600
+expect clip_present 1
+expect clip 0
+expect clip_plays 0
+# The catfish lane, bottom: where flatheads turn up. No waits, automatic.
+turn ALGO 3
+expect track 3
+tap SEQ
+turn K1 -20
+turn K2 -60
+expect wait_max 0
+tap REC
+tap PLAY
+wav clip.wav
+wait 4000
+wavstop
+expect catches >0
+expect rare >0
+expect clip_plays >0
+# Lines out of the water: the clip ends within its length (0.6 s).
+tap REC
+expect hooked 0
+wait 1000
+expect clip 0

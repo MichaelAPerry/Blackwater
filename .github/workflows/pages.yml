@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The site (GitHub Pages): BLACKWATER's device package, built here, booted in fm1-emu (native, Node-Wasm,
+# Chromium) by tools/build_simulator_site.py, which assembles build/site only if every check passes.
+# After MIKU-FM1's and MPFM1's pages.yml: JieLi's Linux toolchain and the AC79 SDK at its pinned tag and commit.
+# Needs Settings > Pages > Source: GitHub Actions. A development build: not attested, not hardware-tested.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sources (pinned submodules; not fm1-emu's optional SID firmware)
+        run: |
+          git submodule update --init platform/fm1-base platform/fm1-emu
+          git -C platform/fm1-base submodule update --init --recursive
+      - name: Tools
+        run: |
+          set -euo pipefail
+          # the fonts' OpenType features (fm1-base tools/gen_font.py): Pillow's raqm loads the system's FriBiDi
+          sudo apt-get install -y -qq libfribidi0
+          python3 -m venv build/venv
+          build/venv/bin/pip install -q -r requirements-dev.txt
+          build/venv/bin/python -c "from PIL import features; assert features.check('raqm'), 'Pillow without raqm'"
+          rustup target add wasm32-unknown-unknown
+          npm install --no-save --no-audit --no-fund playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Toolchain and SDK
+        run: |
+          set -euo pipefail
+          platform/fm1-base/tools/get_toolchain.sh "$RUNNER_TEMP/jieli"
+          sdk="$RUNNER_TEMP/ac79sdk"
+          # the whole SDK as MIKU-FM1/MPFM1 fetch it; else the three files a non-radio build reads (hash-checked)
+          if git clone -q --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+               https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$sdk"; then
+            test "$(git -C "$sdk" rev-parse HEAD)" = d179b4484759423312073f5fbb232501aa491047
+          else
+            rm -rf "$sdk"
+            tools/get_sdk_files.sh "$sdk"
+          fi
+          echo "JIELI_TOOLCHAIN=$RUNNER_TEMP/jieli/toolchain" >> "$GITHUB_ENV"
+          echo "AC79_SDK=$sdk" >> "$GITHUB_ENV"
+      - name: Host tests
+        run: PATH="$PWD/build/venv/bin:$PATH" sh tests/run_tests.sh && build/venv/bin/python tests/package_metadata_test.py
+      - name: Device package
+        # BW_PUBLIC_SAFE=1 would leave out the fish-on clip and the portrait (docs/RIGHTS.md); the owner's decision
+        # is to include them, with the notice on the page
+        env:
+          BW_PUBLIC_SAFE: "0"
+        run: PATH="$PWD/build/venv/bin:$PATH" ./build.sh
+      - name: Emulator (fm1-emu, pinned)
+        run: ./tools/build_emulator.sh
+      - name: Site (native, Node-Wasm and Chromium checks first)
+        run: PATH="$PWD/build/venv/bin:$PATH" python3 tools/build_simulator_site.py firmware/build/blackwater.fwsc firmware/build/blackwater.bin
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidence
+          path: |
+            build/package-tests/
+            build/browser-*/
+            build/tests/
+            firmware/build/blackwater.fwsc
+            firmware/build/blackwater.bin
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

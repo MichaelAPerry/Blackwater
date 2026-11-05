@@ -1,0 +1,20 @@
+name = "BLACKWATER"
+# Package identity, BLACKWATER's own: dev builds FM-1_7700, releases FM-1_77XXYYZZ.
+id_prefix = "FM-1_77"
+usb_manufacturer = "BLACKWATER"
+usb_product = "BLACKWATER FM-1"
+o2 = ["bw_engine.c"]   # the engine (and its species, effects): -O2, its own unit, as MPFM1's DSP
+words = "words.tsv"
+# the "fish on" clip, if firmware/assets/clip/fish_on.wav (or $BW_CLIP_WAV) is there: tools/make_clip.py
+gen = ["../tools/make_clip.py {gen}/bw_clip.h", "../tools/import_art.py {gen}/bw_art.h"]
+ble = false
+usb_audio_in = true
+usb_audio_out = true
+tagline = "Generative freshwater FM"
+repo = "https://github.com/MichaelAPerry/Blackwater"
+licence = "GPL-3.0-or-later"
+credits = "FM-1 platform: fm1-base and felucca-bsp; see THIRD_PARTY.md."
+# backup and restore of the four sessions, your patches and the catch log over USB (fm1-base device/backup.c)
+backup = true
+backup_ext = "blackwater"
+backup_holds = "the four sessions, your patches and the catch log"
