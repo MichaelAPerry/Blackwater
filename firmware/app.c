@@ -8,8 +8,8 @@ static bw_engine bw;
 static bw_clip_state bw_fish_on;
 
 /* ------------------------------------------------------------------ saved objects */
-#define BW_MAGIC 0x42573032u /* "BW02" */
-#define BW_VERSION 2u
+#define BW_MAGIC 0x42573033u /* "BW03": the sounds and the river changed; older sessions start fresh */
+#define BW_VERSION 3u
 typedef struct
 {
     uint32_t magic, version, seed;
@@ -325,6 +325,8 @@ void app_init(void)
     bw_ui.route_source = 1;
     bw_ui.draw = 1;
     bw_ui.event_seq = bw.event.seq;
+    for (unsigned k = 0; k < 4; k++) /* every line in the water: PLAY and the river plays */
+        bw_cast(&bw, k);
 }
 void app_panic(void)
 {
@@ -380,15 +382,8 @@ static void bw_knob(unsigned knob, int d)
     bw_operator *o = &p->op[bw_ui.op];
     switch (bw_ui.page)
     {
-    case BW_RIVER:
-        if (knob == 0)
-            t->volume = (uint8_t)bw_step_val(t->volume, d, 0, 100);
-        if (knob == 1)
-            t->pan = (uint8_t)bw_step_val(t->pan, d, 0, 100);
-        if (knob == 2)
-            t->mute = (uint8_t)bw_step_val(t->mute, d, 0, 1);
-        if (knob == 3)
-            t->solo = (uint8_t)bw_step_val(t->solo, d, 0, 1);
+    case BW_RIVER: /* the river is the mixer: a knob for each fish's level */
+        bw.track[knob].volume = (uint8_t)bw_step_val(bw.track[knob].volume, d * 2, 0, 100);
         break;
     case BW_FISHING:
         if (knob == 0)
@@ -420,6 +415,8 @@ static void bw_knob(unsigned knob, int d)
                 t->density = (uint8_t)bw_step_val(t->density, d, 0, 100);
             if (knob == 2)
                 t->octave = (int8_t)bw_step_val(t->octave, d, -3, 3);
+            if (knob == 3)
+                t->mute = (uint8_t)bw_step_val(t->mute, d, 0, 1);
         }
         else if (d > 0)
         {
@@ -551,7 +548,7 @@ static void bw_knob(unsigned knob, int d)
         uint8_t *v[4][4] = {{&t->send_rev, &t->send_dly, &t->send_cho, &t->drive},
                             {&s->rev_size, &s->rev_tone, &s->rev_level, &s->dly_time},
                             {&s->dly_feedback, &s->dly_level, &s->cho_rate, &s->cho_depth},
-                            {&s->tone, &s->width, 0, 0}};
+                            {&s->tone, &s->width, &t->pan, &t->volume}};
         if (v[sub][knob])
             *v[sub][knob] = (uint8_t)bw_step_val(*v[sub][knob], d, 0, 100);
         break;
@@ -692,6 +689,29 @@ static void bw_input(void)
             bw.track[k].depth = (uint8_t)clamp(bw.track[k].depth + e, 0, BW_NDEPTH - 1);
             bw_ui.dirty = 1;
         }
+        else if (bw_ui.page == BW_RIVER) /* the weather: the river changes before your eyes */
+        {
+            bw.song.weather = (uint8_t)((bw.song.weather + BW_NWEATHER + (e > 0 ? 1 : -1)) % BW_NWEATHER);
+            app_say("WEATHER", bw_weather_names[bw.song.weather]);
+            bw_ui.dirty = 1;
+        }
+        else if (bw_ui.page == BW_SCALE)
+        {
+            bw.song.key = (uint8_t)((bw.song.key + 12 + (e > 0 ? 1 : -1)) % 12);
+            bw_ui.dirty = 1;
+        }
+        else if (bw_ui.page == BW_LFO)
+        {
+            bw.track[k].lfo_target = (uint8_t)clamp(bw.track[k].lfo_target + e, 0, BW_NLFO_TARGET - 1);
+            bw_ui.dirty = 1;
+        }
+        else if (bw_ui.page == BW_ARP)
+        {
+            bw.song.arp_mode = (uint8_t)clamp(bw.song.arp_mode + e, 0, BW_NARP_MODE - 1);
+            bw_ui.dirty = 1;
+        }
+        else if (bw_ui.page == BW_ENV)
+            bw_ui.op = (uint8_t)clamp(bw_ui.op + e, 0, 5);
         else if (bw_subpages[bw_ui.page] > 1)
             bw_ui.sub[bw_ui.page] = (uint8_t)clamp(bw_ui.sub[bw_ui.page] + e, 0, bw_subpages[bw_ui.page] - 1);
     }
@@ -730,14 +750,30 @@ static void bw_input(void)
         bw_transport(&bw, !bw.playing);
     if (pressed & (1u << B_REC))
     {
-        int st = bw_fish_state(&bw, k);
-        if (st == BW_FISH_BITE)
-        {
-            if (bw_hookset(&bw, k))
+        /* a bite on any line: REC answers it (the chosen fish first), and that fish becomes the chosen one */
+        int biting = -1;
+        for (unsigned i = 0; i < 4; i++)
+            if (bw_fish_state(&bw, (k + i) % 4) == BW_FISH_BITE)
             {
+                biting = (int)((k + i) % 4);
+                break;
+            }
+        int st = bw_fish_state(&bw, k);
+        if (fighting)
+        {
+            bw_fight(&bw, k, 2, now - bw_ui.fight_ms); /* REC reels too: two turns a press */
+            bw_ui.fight_ms = now;
+            bw_ui.reel_turns += 2;
+        }
+        else if (biting >= 0)
+        {
+            if (bw_hookset(&bw, (unsigned)biting))
+            {
+                bw_ui.track = (uint8_t)biting;
+                bw.live_track = bw_ui.track;
                 bw_ui.page = BW_FISHING;
                 bw_ui.fight_ms = now;
-                app_say(bw.fish_rare[k] ? "FISH ON!" : "HOOK SET", "REEL WITH SELECT");
+                app_say(bw.fish_rare[biting] ? "FISH ON!" : "HOOK SET", "REEL: SELECT OR REC");
             }
         }
         else if (st == BW_FISH_WAIT)
@@ -958,7 +994,27 @@ static void bw_header(const char *title, uint16_t c, const char *right)
     bw_cat(t, sizeof t, " ");
     bw_cat(t, sizeof t, bw_scale_names[bw.song.scale]);
     int32_t lx = tx > 6 ? tx : 6;
-    if (tx < 0) /* RIVER: the wordmark fills the left; the state on the right only */
+    if ((int32_t)(bw_ui.popup_until - plat_ms()) > 0 && tx >= 0)
+    {
+        /* the last catch, in one line: what, how big, what it did */
+        const bw_event *ev = &bw_ui.popup;
+        char u[40];
+        u[0] = 0;
+        if (ev->result == BW_FIGHT_LANDED)
+        {
+            bw_cat(u, sizeof u, bw_species_names[ev->species]);
+            bw_cat(u, sizeof u, " ");
+            char l[16] = "";
+            bw_length_text(l, ev->mm);
+            bw_cat(u, sizeof u, l);
+            if (ev->best)
+                bw_cat(u, sizeof u, ev->key_change ? " BEST! NEW KEY" : " BEST!");
+        }
+        else
+            bw_cat(u, sizeof u, ev->result == BW_FIGHT_SNAPPED ? "LINE SNAPPED" : "IT GOT AWAY");
+        T(lx, 29, &FONT_XS, u, ev->rare ? C_GOLD : bw_color(ev->track));
+    }
+    else if (tx < 0) /* RIVER: the wordmark fills the left; the state on the right only */
         ;
     else if (bw_ui.message[0] && (int32_t)(bw_ui.message_until - plat_ms()) > 0)
         T(lx, 29, &FONT_XS, bw_ui.message, C_PINK);
@@ -1276,6 +1332,11 @@ static void bw_draw_page(uint32_t ms)
                     R(0, y, 240, 48, C_PANEL);
                 R(0, y + 4, 3, 40, bw_color(i)); /* the chosen fish */
             }
+            int32_t since = (int32_t)(ms - (bw_ui.popup_until - 3500u));
+            if (bw_ui.popup.track == i && since >= 0 && since < 900 && (since / 150) % 2 == 0)
+                R(0, y + 44, 240, 3, bw_ui.popup.rare ? C_GOLD : bw_color(i)); /* a catch: the lane flashes */
+            if (st == BW_FISH_BITE && (ms / 200u) % 2u == 0)
+                R(0, y + 2, 240, 2, C_PINK); /* a bite: answer it with REC */
             if (!art)
                 for (int32_t x = 0; x < 240; x += 12)
                     R(x + (int32_t)((ms / 200u + i * 3) % 12u), y + 45, 6, 1, RGB(20, 50, 70));
@@ -1290,7 +1351,7 @@ static void bw_draw_page(uint32_t ms)
             TS(62, y + 22, &FONT_XS, bw.track[i].mute ? "MUTED" : bw_state_text(i), bw_color(i));
             if (st != BW_FISH_IDLE)
                 bw_draw_bobber(222, y + 24, i, ms);
-            bw_bar(168, y + 10, 36, bw.track[i].volume, 100, bw_color(i));
+            bw_bar(168, y + 10, 36, bw.track[i].volume, 100, bw_color(i)); /* K1-K4: these levels */
             int32_t m = (int32_t)(fm_minf(1.0f, bw.meter[i] * 2.0f) * 36.0f); /* what the fish is playing now */
             R(168, y + 22, 36, 3, C_BG);
             R(168, y + 22, m, 3, m > 32 ? C_PINK : bw_color(i));
@@ -1371,7 +1432,7 @@ static void bw_draw_page(uint32_t ms)
             bw_param_n(6, 150, "K1 LENGTH", tr->cur.len, 32, c);
             bw_param_n(122, 150, "K2 DENSITY %", tr->density, 100, c);
             bw_param_n(6, 190, "K3 OCTAVE", tr->octave, 0, c);
-            T(122, 190, &FONT_XS, "PRESETS: ACTIONS", C_MUTE);
+            bw_param(122, 190, "K4 MUTE", tr->mute ? "MUTED" : "PLAYING", 0, 0, c);
         }
         else
         {
@@ -1580,12 +1641,12 @@ static void bw_draw_page(uint32_t ms)
         static const char *const lab[4][4] = {{"K1 REVERB", "K2 ECHO", "K3 CHORUS", "K4 DRIVE"},
                                               {"K1 SIZE", "K2 TONE", "K3 LEVEL", "K4 ECHO TIME"},
                                               {"K1 FEEDBACK", "K2 ECHO LEVEL", "K3 CHORUS RATE", "K4 DEPTH"},
-                                              {"K1 TONE", "K2 WIDTH", "", ""}};
+                                              {"K1 TONE", "K2 WIDTH", "K3 PAN (FISH)", "K4 LEVEL (FISH)"}};
         static const char *const dtime[6] = {"1/16", "1/8T", "1/8", "1/8.", "1/4", "1/4."};
         const uint8_t v[4][4] = {{tr->send_rev, tr->send_dly, tr->send_cho, tr->drive},
                                  {s->rev_size, s->rev_tone, s->rev_level, s->dly_time},
                                  {s->dly_feedback, s->dly_level, s->cho_rate, s->cho_depth},
-                                 {s->tone, s->width, 0, 0}};
+                                 {s->tone, s->width, tr->pan, tr->volume}};
         T(6, 52, &FONT_XS, titles[sub], sub ? C_YEL : c);
         u[0] = 0;
         bw_cat(u, sizeof u, "PAGE ");
@@ -1691,6 +1752,16 @@ static void bw_draw(void)
         bw_ui.dirty = 1;
     }
     int popup = (int32_t)(bw_ui.popup_until - ms) > 0 && bw_fish_state(&bw, bw_ui.track) != BW_FISH_FIGHT;
+    static uint8_t was_biting[4];
+    int any_bite = 0;
+    for (unsigned i = 0; i < 4; i++)
+    {
+        int b = bw_fish_state(&bw, i) == BW_FISH_BITE;
+        if (b && !was_biting[i])
+            app_say("BITE!", bw_species_names[i]); /* REC answers it, whichever fish */
+        was_biting[i] = (uint8_t)b;
+        any_bite |= b;
+    }
     if (bw_fish_on_seq != bw_ui.fish_on_seen)
     {
         bw_ui.fish_on_seen = bw_fish_on_seq;
@@ -1720,8 +1791,7 @@ static void bw_draw(void)
             if (!fish_on || wave <= 240)
             {
                 bw_draw_page(ms);
-                if (popup)
-                    bw_draw_popup();
+                (void)popup; /* catches show in the header now, never over the page */
             }
             if (fish_on)
             {
@@ -1741,7 +1811,7 @@ static void bw_draw(void)
     static const uint8_t white[16] = PLAT_WHITE_KEYS;
     unsigned k = bw_ui.track;
     uint32_t leds = (bw.playing ? 1u << B_PLAY : 0) | (bw_ui.dirty ? 1u << B_SAVE : 0) |
-                    (bw_fish_state(&bw, k) == BW_FISH_BITE ? 1u << B_REC : 0) | (bw.arp ? 1u << B_ARP : 0);
+                    (any_bite && (ms / 150u) % 2u ? 1u << B_REC : 0) | (bw.arp ? 1u << B_ARP : 0);
     uint32_t keyleds = bw_ui.keys;
     if (bw.playing)
         keyleds |= 1u << white[(bw.step[k] + bw.track[k].cur.len - 1) % bw.track[k].cur.len % 16];
@@ -1820,6 +1890,8 @@ int app_expect(const char *what, int *got)
                   {"bait", t->bait},
                   {"depth", t->depth},
                   {"level", t->patch.op[bw_ui.op].level},
+                  {"volume", t->volume},
+                  {"weather", bw.song.weather},
                   {"algorithm", t->patch.algorithm},
                   {"theme_len", t->cur.len},
                   {"theme_notes", (int)notes},

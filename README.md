@@ -8,6 +8,8 @@ the music moves. Rare fish start a new section, and a personal best changes the 
 
 **Play it in your browser:** <https://michaelaperry.github.io/Blackwater/>. That page runs the actual firmware
 package in [fm1-emu](https://github.com/joakimeriksson/fm1-emu), an emulator of the FM-1's chip, at its own 240 MHz.
+**Install it on your FM-1** from the same page: fm1-base's web installer, in Chrome or Edge over USB
+(<https://michaelaperry.github.io/Blackwater/install/>), with backup and restore of your sessions beside it.
 
 | Slot | Fish (rare cousin) | Plays |
 | --- | --- | --- |

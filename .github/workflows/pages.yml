@@ -13,6 +13,9 @@ on:
 permissions:
   contents: read
 
+env:
+  VERSION: "0.1"   # the release the site carries and installs (identity FM-1_77XXYYZZ)
+
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -60,11 +63,11 @@ jobs:
         # is to include them, with the notice on the page
         env:
           BW_PUBLIC_SAFE: "0"
-        run: PATH="$PWD/build/venv/bin:$PATH" ./build.sh
+        run: PATH="$PWD/build/venv/bin:$PATH" ./build.sh --release "$VERSION"
       - name: Emulator (fm1-emu, pinned)
         run: ./tools/build_emulator.sh
       - name: Site (native, Node-Wasm and Chromium checks first)
-        run: PATH="$PWD/build/venv/bin:$PATH" python3 tools/build_simulator_site.py firmware/build/blackwater.fwsc firmware/build/blackwater.bin
+        run: PATH="$PWD/build/venv/bin:$PATH" python3 tools/build_simulator_site.py "firmware/build/blackwater-$VERSION.fwsc" firmware/build/blackwater.bin --version "$VERSION"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -73,7 +76,7 @@ jobs:
             build/package-tests/
             build/browser-*/
             build/tests/
-            firmware/build/blackwater.fwsc
+            firmware/build/blackwater-*.fwsc
             firmware/build/blackwater.bin
       - uses: actions/upload-pages-artifact@v3
         with:
