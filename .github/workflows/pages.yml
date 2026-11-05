@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: "0.1"   # the release the site carries and installs (identity FM-1_77XXYYZZ)
+  VERSION: "0.2"   # the release the site carries and installs (identity FM-1_77XXYYZZ)
 
 concurrency:
   group: pages

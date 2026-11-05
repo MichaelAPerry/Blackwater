@@ -25,8 +25,10 @@ wavstop
 expect peak_db_min -40
 key 12 up
 shot edit.png
-# The patch library: BELL, the second factory patch.
-turn PRESET 3
+# The patch library: BELL, the second factory patch (EDIT again: the next of its pages).
+tap EDIT
+tap EDIT
+tap EDIT
 expect sub 3
 turn K1 1
 turn K2 1

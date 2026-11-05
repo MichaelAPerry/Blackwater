@@ -248,7 +248,7 @@ int main(void)
     }
     printf("fight results (landed/snapped/thrown by style) in the line below\n");
     printf("fights: patient %u/20 landed, cranking %u/20 snapped, idle %u/20 thrown\n", landed, snapped, thrown);
-    CHECK(landed >= 15 && snapped >= 15 && thrown >= 15);
+    CHECK(landed >= 15 && snapped >= 10 && thrown >= 15); /* (shorter fights: a small fish can be hauled in) */
     /* a missed bite: the window closes */
     fresh();
     e.track[0].manual = 1;
