@@ -47,6 +47,11 @@ python3 tests/package_metadata_test.py
 | `tools/get_sdk_files.sh` | the three hash-checked AC79 SDK files |
 | `tools/build_emulator.sh`, `emulator_smoke.py`, `emulator_wasm_smoke.mjs`, `browser_smoke.mjs`, `build_simulator_site.py`, `package_metadata.mjs` | fm1-emu builds, package checks, the gated site |
 
+## Public builds
+
+`BW_PUBLIC_SAFE=1 ./build.sh` leaves out the fish-on clip and the portrait (the Pages workflow sets it) until
+their owners give permission: see [RIGHTS.md](RIGHTS.md).
+
 ## Design notes
 
 - The engine is float (the AC79's single-precision FPU), no doubles; fastmath's exp2 is only called with

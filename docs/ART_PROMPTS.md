@@ -209,3 +209,70 @@ transparent background outside the circle. No text.
 - Settled: the catfish slot is the **channel catfish**; the **flathead** is its rare cousin (prompt 5b).
 - Background count: one river or the three moods in prompt 7 (they could follow tempo, time played, or catches).
 - Whether a fish's sprite scales with its recorded size on the river screen.
+
+---
+
+## UI kit (for a slicker interface)
+
+Same style reference as prompt 1, the same magenta-key and crisp-pixel rules. These replace drawn rectangles and
+words with art; each has a place waiting in the firmware.
+
+### U1. Wordmark — `logo.png` (the boot screen and the RIVER header)
+
+```
+Using the palette and style of the attached image, make a PIXEL ART wordmark that reads BLACKWATER, 200x32 game
+pixels, every game pixel a crisp 4x4 block (800x128 px), on solid magenta #FF00FF. Chunky, slightly weathered
+letters in bone white with a dark outline, a thin line of murky water lapping across the bottom of the letters, a
+tiny fishing hook hanging from the final R. At most 8 colours. Nothing else in the image.
+```
+
+### U2. Page icons — `icons.png` (the header shows the page as an icon, not a word)
+
+```
+Using the palette and style of the attached image, make a PIXEL ART icon sheet: a 6 x 2 grid of equal cells, each
+16x16 game pixels, every game pixel a crisp 8x8 block (each cell 128x128 px), magenta #FF00FF background, no gaps,
+no text. At most 10 colours. Cells: 1 river (wavy lines and reeds), 2 fishing (a rod and float), 3 theme (a short
+melody of notes), 4 catch log (an open notebook with a fish), 5 scale (three piano keys), 6 FM edit (two connected
+boxes), 7 envelope (a rising and falling line), 8 LFO (a sine wave), 9 effects (a ripple ring), 10 arpeggiator
+(stair-step notes), 11 global (a lantern), 12 help (a question mark on a buoy).
+```
+
+### U3. Weather icons — `weather.png`
+
+```
+Same rules, a 4 x 1 grid of 16x16 game-pixel cells (8x8 blocks): 1 day (sun over water), 2 dusk (half sun on the
+horizon, orange), 3 night (crescent moon and a star), 4 storm (cloud, rain, a lightning bolt).
+```
+
+### U4. FISH ON! burst — `strike.png` (the strike's impact, animated)
+
+```
+Using the palette and style of the attached image, make a PIXEL ART animation sheet of a comic-book impact burst
+over water: a 4 x 1 grid of 96x96 game-pixel cells (4x4 blocks, each cell 384x384 px), magenta background. Frames:
+1 a small white star flash; 2 a large jagged amber-and-white burst with speed lines; 3 the burst breaking into
+spray droplets; 4 a few droplets and a ripple ring fading. At most 10 colours, no text.
+```
+
+### U5. Fight HUD — `fight.png` (the reel and the rod)
+
+```
+Same rules: a 4 x 2 grid of 48x48 game-pixel cells (8x8 blocks, each cell 384x384 px), magenta background, no
+text. Row 1: a baitcasting reel seen from the side, its handle in four positions of one turn (an animation loop).
+Row 2: a fishing rod tip in four bends, from straight to bent hard, the line running off to the right.
+```
+
+### U6. Card frames — `frames.png` (the catch card and the panels)
+
+```
+Same rules: a 3 x 3 grid of 8x8 game-pixel cells (16x16 blocks, each cell 128x128 px), magenta background: the
+nine pieces of a weathered wooden frame for a panel (corners, edges, and a plain dark-water middle), with a small
+rope knot in the top-left corner piece. At most 8 colours.
+```
+
+### U7. Water strip — `water.png` (moving water along the bottom of the screen)
+
+```
+Same rules: a 1 x 4 grid of 240x16 game-pixel cells (2x2 blocks, each cell 480x32 px), NO magenta (full
+rectangles): the surface of a dark river seen side-on, ripples and moonlight glints moving to the left a little
+in each frame, so the four frames loop. At most 8 colours.
+```

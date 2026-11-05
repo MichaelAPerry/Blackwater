@@ -237,8 +237,12 @@ def main():
              'typedef struct', '{', '    uint16_t w, h;', '    uint8_t cols, rows, key;', '    const uint16_t *pal;',
              '    const uint8_t *px; /* 4 bits a pixel, cell after cell; 0 = no art */', '} bw_sheet;']
     have = {}
+    public = os.environ.get('BW_PUBLIC_SAFE') == '1'
     for name, (file, gw, gh, cols, rows, keyed) in SHEETS.items():
         path = d / file
+        if public and name == 'portrait':  # a real person's likeness: not in public builds until he says yes
+            print(f'art: {file}: left out (BW_PUBLIC_SAFE=1)')
+            continue
         if not path.is_file():
             continue
         img = Image.open(path).convert('RGBA')

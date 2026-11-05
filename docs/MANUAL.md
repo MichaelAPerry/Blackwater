@@ -28,7 +28,8 @@ one key, scale and chord progression (SCALE), so their themes stay in harmony as
    range, with the odd trophy beyond it; weights from length.
 5. **REC** again with the line in the water pulls it in (that fish goes quiet).
 
-A rare fish taking the line is the FISH ON! moment: the portrait, the words and the clip (GLOBAL page 2: clip on/off,
+A rare fish taking the line is the FISH ON! strike (1.6 s): the bobber yanked under, a flash and a shake, the
+portrait slamming in, FISH and ON!, spray, then a wave washing it away; with the clip (GLOBAL page 2: clip on/off,
 level).
 
 ## The theme (SEQ again)

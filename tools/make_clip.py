@@ -90,6 +90,11 @@ def main():
         return
     if not a.out:
         ap.error('OUT.h required')
+    if os.environ.get('BW_PUBLIC_SAFE') == '1' and not a.wav:
+        # a public build until the clip's owners say yes: no clip (docs/RIGHTS.md)
+        a.out.write_text(header([], 'left out of this public build (BW_PUBLIC_SAFE=1)'))
+        print('clip: left out (BW_PUBLIC_SAFE=1)')
+        return
     wav = a.wav or (pathlib.Path(os.environ['BW_CLIP_WAV']) if os.environ.get('BW_CLIP_WAV') else DEFAULT)
     if not wav.is_file():
         if a.wav or os.environ.get('BW_CLIP_WAV'):

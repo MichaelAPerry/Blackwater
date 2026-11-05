@@ -182,9 +182,10 @@ uint32_t bw_midi_room(void)
 }
 static uint32_t bw_clip_plays;
 static volatile uint32_t bw_fish_on_seq; /* a rare fish took the line: the FISH ON! moment */
+static volatile uint8_t bw_fish_on_track;
 void bw_on_rare(unsigned k)
 {
-    (void)k;
+    bw_fish_on_track = (uint8_t)(k & 3u);
     bw_fish_on_seq++;
     if (bw_pref.clip_on && bw_clip_present() && !bw_fish_on.active)
         bw_clip_plays++;
@@ -772,18 +773,21 @@ static void bw_input(void)
 /* ------------------------------------------------------------------ drawing, in screen coordinates; each band
  * draws what falls in it (the canvas is one 48-row band) */
 static int32_t bw_oy;
+static int32_t bw_ymax = 240; /* nothing below this row (the FISH ON! wave's wipe) */
 static int bw_in(int32_t y, int32_t h)
 {
-    return y + h > bw_oy && y < bw_oy + 48;
+    return y + h > bw_oy && y < bw_oy + 48 && y < bw_ymax;
 }
 static void R(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)
 {
-    if (bw_in(y, h))
+    if (y + h > bw_ymax)
+        h = bw_ymax - y;
+    if (h > 0 && bw_in(y, h))
         cv_rect(x, y - bw_oy, w, h, c);
 }
 static int32_t T(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
 {
-    if (bw_in(y, (int32_t)f->h))
+    if (bw_in(y, (int32_t)f->h) && y + (int32_t)f->h <= bw_ymax)
         return cv_text(x, y - bw_oy, f, s, c);
     return x + text_w(f, s);
 }
@@ -1061,21 +1065,105 @@ static void bw_draw_popup(void)
         T(20, 146, &FONT_XS, ev->rare ? "IT WAS SOMETHING BIG..." : "IT GOT AWAY", C_MUTE);
     }
 }
-/* FISH ON!: the portrait and the words, while the clip plays (or a moment, without one) */
-static void bw_draw_fish_on(uint32_t ms)
+/* FISH ON!: a strike, 1.6 s. The bobber is yanked under; a flash and a shake; the portrait slams in from the left
+ * over spinning speed lines; FISH crashes in from the right and ON! drops in; spray bursts up from the water; a
+ * wave sweeps up and washes it all away (bw_draw draws the page beneath it). t: ms since the strike */
+#define BW_STRIKE_MS 1600u
+static float bw_ease_back(float u) /* overshoots, then settles: 0 -> 1 */
 {
-    R(0, 48, 240, 192, C_BG);
+    u = fm_clampf(u, 0.0f, 1.0f) - 1.0f;
+    return 1.0f + u * u * (2.7f * u + 1.7f);
+}
+static void bw_text_punch(int32_t x, int32_t y, const char *s, uint16_t c)
+{
+    static const int8_t o[8][2] = {{-2, 0}, {2, 0}, {0, -2}, {0, 2}, {-2, -2}, {2, 2}, {-2, 2}, {2, -2}};
+    for (unsigned i = 0; i < 8; i++) /* a heavy dark outline: the words read over anything */
+        T(x + o[i][0], y + o[i][1], &FONT_L, s, C_BLACK);
+    T(x + 3, y + 4, &FONT_L, s, RGB(120, 70, 20));
+    T(x, y, &FONT_L, s, c);
+}
+static void bw_draw_fish_on(uint32_t t)
+{
+    /* the shake: hard at the strike, dying away by 0.6 s */
+    int32_t sx = 0, sy = 0;
+    if (t > 180 && t < 700)
+    {
+        int32_t amp = (int32_t)(7.0f * (1.0f - (float)(t - 180) / 520.0f)) + 1;
+        sx = (t / 30u) & 1 ? amp : -amp;
+        sy = (t / 45u) & 1 ? amp / 2 : -amp / 2;
+    }
+    /* 0-180 ms: the bobber goes under, rings spreading */
+    if (t < 180)
+    {
+        R(0, 48, 240, 192, C_BG);
+        int32_t r = (int32_t)t / 6;
+        for (int32_t a = 0; a < 3; a++)
+        {
+            int32_t rr = r - a * 9;
+            if (rr > 0)
+            {
+                L(120 - rr * 2, 150, 120 + rr * 2, 150, a ? C_BAR : C_TXT);
+                L(120 - rr, 150 - rr / 3, 120 + rr, 150 - rr / 3, C_BAR);
+            }
+        }
+        if (!bw_prop(3, 108, 132 + (int32_t)t / 20))
+            R(116, 140 + (int32_t)t / 20, 8, 6, C_PINK);
+        return;
+    }
+    /* the flash */
+    if (t < 260)
+    {
+        R(0, 48, 240, 192, t < 220 ? RGB(240, 236, 220) : C_GOLD);
+        return;
+    }
+    R(0, 48, 240, 192, RGB(10, 22, 20));
+    /* speed lines, turning */
+    float spin = (float)t * 0.0025f;
+    for (int i = 0; i < 18; i++)
+    {
+        float an = spin + (float)i * (FM_TWO_PI / 18.0f), co = fm_cosf(an), si = fm_sinf(an);
+        L(64 + sx + (int32_t)(co * 40.0f), 116 + sy + (int32_t)(si * 40.0f), 64 + sx + (int32_t)(co * 260.0f),
+          116 + sy + (int32_t)(si * 260.0f), i & 1 ? RGB(22, 44, 38) : RGB(40, 66, 52));
+    }
+    /* the portrait: in from the left, overshooting */
+    int32_t px = -120 + (int32_t)(132.0f * bw_ease_back((float)(t - 260) / 260.0f));
     if (bw_art_portrait[0].px)
-        bw_sheet_draw2(&bw_art_portrait[0], 0, 8, 56, 1, 0);
-    else
-        R(8, 56, 112, 112, C_PANEL);
-    int32_t shake = (int32_t)(ms / 60u % 3u) - 1;
-    T(132 + shake, 70, &FONT_L, "FISH", C_GOLD);
-    T(132 - shake, 104, &FONT_L, "ON!", C_GOLD);
-    T(132, 146, &FONT_XS, "SOMETHING BIG", C_TXT);
-    T(132, 162, &FONT_XS, "IS ON THE LINE", C_TXT);
-    if (bw_art_banner[0].px)
-        bw_sheet_draw(&bw_art_banner[0], 0, 45, 182, 0, 0);
+    {
+        R(px + sx - 3, 57 + sy, 118, 118, C_GOLD);
+        bw_sheet_draw2(&bw_art_portrait[0], 0, px + sx, 60 + sy, 1, 0);
+    }
+    else /* no portrait in this build: the fish itself, twice the size, thrashing */
+        bw_draw_fish_at(px + sx, 92 + sy, bw.fish[bw_fish_on_track], 7u + t / 120u % 3u, 0, 2);
+    /* the words: FISH from the right, ON! dropping in */
+    int32_t fx = 240 - (int32_t)(110.0f * bw_ease_back((float)((int32_t)t - 360) / 220.0f));
+    if (t > 360)
+        bw_text_punch(fx + sx, 74 + sy, "FISH", C_GOLD);
+    int32_t oy = -40 + (int32_t)(150.0f * bw_ease_back((float)((int32_t)t - 520) / 220.0f));
+    if (t > 520)
+        bw_text_punch(150 + sx, oy + sy, "ON!", C_GOLD);
+    /* spray: thrown up from the water, falling back */
+    float st = (float)(t - 260) / 1000.0f;
+    for (unsigned i = 0; i < 40; i++)
+    {
+        uint32_t h = i * 2654435761u;
+        float vx = (float)((int)(h >> 8 & 255) - 128) * 0.9f, vy = 160.0f + (float)(h >> 16 & 127);
+        int32_t x = 120 + (int32_t)(vx * st), y = 240 - (int32_t)(vy * st - 180.0f * st * st);
+        if (y < 238 && y > 48)
+            R(x + sx, y + sy, i % 3 ? 2 : 3, i % 3 ? 2 : 3, i & 1 ? C_TXT : RGB(150, 200, 210));
+    }
+    /* the water line, choppy */
+    for (int32_t x = 0; x < 240; x += 4)
+        R(x, 226 + (int32_t)(3.0f * fm_sinf((float)x * 0.09f + (float)t * 0.012f)), 4, 14, RGB(16, 40, 44));
+}
+/* the wave that washes FISH ON! away: its top edge at row y (the page shows beneath), foam on the crest */
+static void bw_draw_wave(int32_t y, uint32_t t)
+{
+    for (int32_t x = 0; x < 240; x += 3)
+    {
+        int32_t yy = y + (int32_t)(5.0f * fm_sinf((float)x * 0.07f + (float)t * 0.02f));
+        R(x, yy, 3, 3, C_TXT);
+        R(x, yy + 3, 3, 4, RGB(60, 120, 130));
+    }
 }
 /* the patch's routing: modulators left, carriers right, a line for each route, the chosen operator outlined */
 static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned sel, uint16_t c)
@@ -1550,9 +1638,16 @@ static void bw_draw(void)
     if (bw_fish_on_seq != bw_ui.fish_on_seen)
     {
         bw_ui.fish_on_seen = bw_fish_on_seq;
-        bw_ui.fish_on_until = ms + 1800u;
+        bw_ui.fish_on_until = ms + BW_STRIKE_MS;
     }
-    int fish_on = (int32_t)(bw_ui.fish_on_until - ms) > 0 || bw_fish_on.active;
+    int fish_on = (int32_t)(bw_ui.fish_on_until - ms) > 0;
+    uint32_t strike_t = BW_STRIKE_MS - (bw_ui.fish_on_until - ms);
+    /* the last 350 ms: a wave rises from the bottom; the page beneath it, the strike above */
+    int32_t wave = fish_on && strike_t > BW_STRIKE_MS - 350u
+                       ? 240 - (int32_t)((strike_t - (BW_STRIKE_MS - 350u)) * 200u / 350u)
+                       : 241;
+    if (fish_on)
+        bw_ui.draw = 1; /* every frame while it plays */
     right[0] = 0;
     bw_text_copy(right, bw.playing ? "PLAYING" : "STOPPED", sizeof right);
     for (unsigned band = 0; band < 5; band++)
@@ -1566,13 +1661,21 @@ static void bw_draw(void)
                       right);
         else
         {
-            if (fish_on)
-                bw_draw_fish_on(ms);
-            else
+            if (!fish_on || wave <= 240)
             {
                 bw_draw_page(ms);
                 if (popup)
                     bw_draw_popup();
+            }
+            if (fish_on)
+            {
+                bw_ymax = wave < 240 ? wave : 240;
+                if (wave < 240)
+                    R(0, 48, 240, 192, C_BG); /* (clipped to above the wave: the strike's own background) */
+                bw_draw_fish_on(strike_t);
+                bw_ymax = 240;
+                if (wave < 240)
+                    bw_draw_wave(wave, strike_t);
             }
         }
         lcd_blit(0, band * 48, 240, 48, cv_px);
