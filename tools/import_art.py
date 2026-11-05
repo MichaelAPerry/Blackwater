@@ -28,7 +28,8 @@ SHEETS.update({
     'portraits_rare': ('portraits_rare.png', 96, 64, 2, 2, False),
     'river': ('river.png', 240, 240, 3, 1, False),
     'props': ('props.png', 24, 24, 6, 3, True),
-    'banner': ('fish_on.png', 150, 50, 1, 1, True),  # the splash scene, 3:1
+    'banner': ('fish_on.png', 150, 50, 1, 1, True),
+    'portrait': ('fish_on_portrait.png', 112, 112, 1, 1, False),  # the FISH ON! moment  # the splash scene, 3:1
 })
 
 
@@ -96,6 +97,103 @@ def sample(img, gw, gh, cols, rows, keyed):
     return cells
 
 
+def grid_lines(img, step, mh, mw):
+    """rows and columns that are a dark rule across nearly the whole sheet: a grid between the cells, not a fish
+    (four fish side by side also fill a row, but not with one near-black line); a cell of slack either side"""
+    px = img.load()
+    dark = lambda c: max(c[:3]) < 80
+    rows = {j for j in range(mh) if sum(dark(px[i * step, j * step]) for i in range(mw)) > 0.9 * mw}
+    cols = {i for i in range(mw) if sum(dark(px[i * step, j * step]) for j in range(mh)) > 0.9 * mh}
+    return ({y + d for y in rows for d in (-1, 0, 1) if 0 <= y + d < mh},
+            {x + d for x in cols for d in (-1, 0, 1) if 0 <= x + d < mw})
+
+
+def find_sprites(img, frames):
+    """a fish sheet by its drawings, not its grid: rows of content, then the drawings in each row (gaps of key
+    between them); specks (a stray splash, a line's broken end) join the drawing nearest them. 13 drawings (an
+    extra fight frame) keep the first seven, three fights spread over the rest and the last two -> boxes
+    (x0, y0, x1, y1) in sheet pixels, in reading order"""
+    W, H = img.size
+    step = max(1, W // 600)
+    px = img.load()
+    mask = [[not is_key(px[x, y]) for x in range(0, W, step)] for y in range(0, H, step)]
+    mh, mw = len(mask), len(mask[0])
+    lines_r, lines_c = grid_lines(img, step, mh, mw)
+    for y in lines_r:
+        mask[y] = [False] * mw
+    for x in lines_c:
+        for y in range(mh):
+            mask[y][x] = False
+
+    def runs(flags, gap):
+        out, start, last = [], None, None
+        for i, f in enumerate(flags):
+            if f:
+                if start is None:
+                    start = i
+                elif i - last > gap:
+                    out.append((start, last + 1))
+                    start = i
+                last = i
+        if start is not None:
+            out.append((start, last + 1))
+        return out
+    boxes, per_row = [], []
+    for r0, r1 in runs([any(row) for row in mask], max(2, mh // 60)):
+        cols = [any(mask[y][x] for y in range(r0, r1)) for x in range(mw)]
+        found = []
+        for c0, c1 in runs(cols, max(2, mw // 200)):
+            ys = [y for y in range(r0, r1) if any(mask[y][c0:c1])]
+            found.append([c0, ys[0], c1, ys[-1] + 1])
+        if not found:
+            continue
+        big = max((b[2] - b[0]) * (b[3] - b[1]) for b in found)
+        keep = [b for b in found if (b[2] - b[0]) * (b[3] - b[1]) > big * 0.05]
+        for b in found:
+            if b not in keep:  # a speck: into its neighbour
+                n = min(keep, key=lambda k: abs((k[0] + k[2]) - (b[0] + b[2])))
+                n[0], n[1], n[2], n[3] = min(n[0], b[0]), min(n[1], b[1]), max(n[2], b[2]), max(n[3], b[3])
+        boxes += keep
+        per_row.append(len(keep))
+    boxes = [(b[0] * step, b[1] * step, b[2] * step, b[3] * step) for b in boxes]
+    find_sprites.lines = ({y * step + d for y in lines_r for d in range(step)},
+                          {x * step + d for x in lines_c for d in range(step)})
+    if len(boxes) > frames:
+        extra = boxes[7:len(boxes) - 2]
+        fights = [extra[round(i * (len(extra) - 1) / 2)] for i in range(3)]
+        boxes = boxes[:7] + fights + boxes[-2:]
+    if len(boxes) != frames:
+        raise ValueError(f'found {len(boxes)} drawings ({per_row} by row), expected {frames}')
+    return boxes
+
+
+def sample_sprites(img, gw, gh, frames):
+    """each drawing centred in one window shared by all (the largest drawing, at the sprite's proportions)"""
+    boxes = find_sprites(img, frames)
+    lr, lc = find_sprites.lines
+    s = max(max((b[2] - b[0]) / gw, (b[3] - b[1]) / gh) for b in boxes)
+    W, H = img.size
+    px = img.load()
+    cells = []
+    for x0, y0, x1, y1 in boxes:
+        ox, oy = (x0 + x1) / 2 - gw * s / 2, (y0 + y1) / 2 - gh * s / 2
+        cell = []
+        for j in range(gh):
+            line = []
+            for i in range(gw):
+                bx, by = ox + i * s, oy + j * s
+                xs = range(int(bx + s * 0.375), max(int(bx + s * 0.625), int(bx + s * 0.375) + 1))
+                ys = range(int(by + s * 0.375), max(int(by + s * 0.625), int(by + s * 0.375) + 1))
+                # only this drawing: its own box (a neighbour's fin past the edge is not part of it)
+                votes = collections.Counter(px[x, y][:3] if x0 <= x < x1 and y0 <= y < y1 and y not in lr and x not in lc
+                                            else (255, 0, 255) for y in ys for x in xs)
+                c = votes.most_common(1)[0][0]
+                line.append(None if is_key(c) else c)
+            cell.append(line)
+        cells.append(cell)
+    return cells
+
+
 def quantize(cells, keyed):
     """-> palette (RGB565 list), cells as indices (0 = transparent on keyed sheets). The palette is the sheet's own
     most frequent colours, a near-duplicate (a blurred edge, a JPEG-ish wobble) folded into the one it is close to;
@@ -149,7 +247,12 @@ def main():
         W, H = img.size
         if W < gw * cols or H < gh * rows:
             raise SystemExit(f'import_art: {file}: {W}x{H} is smaller than {cols}x{rows} cells of {gw}x{gh}')
-        pal, cells = quantize(sample(img, gw, gh, cols, rows, keyed), keyed)
+        try:
+            cells = sample_sprites(img, gw, gh, cols * rows) if name in FISH else sample(img, gw, gh, cols, rows, keyed)
+        except ValueError as e:
+            print(f'art: {file}: {e}; read as a {cols}x{rows} grid instead')
+            cells = sample(img, gw, gh, cols, rows, keyed)
+        pal, cells = quantize(cells, keyed)
         data = pack(cells)
         lines.append('static const uint16_t bw_pal_%s[16] = {%s};' % (name, ','.join(map(str, pal))))
         lines.append('static const uint8_t bw_px_%s[%d] = {' % (name, len(data)))
@@ -169,6 +272,7 @@ def main():
     lines.append('static const bw_sheet bw_art_river[1] = {%s};' % entry('river'))
     lines.append('static const bw_sheet bw_art_props[1] = {%s};' % entry('props'))
     lines.append('static const bw_sheet bw_art_banner[1] = {%s};' % entry('banner'))
+    lines.append('static const bw_sheet bw_art_portrait[1] = {%s};' % entry('portrait'))
     a.out.write_text('\n'.join(lines) + '\n')
     if not have:
         print('art: no sheets yet, the firmware draws placeholders')

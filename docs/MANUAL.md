@@ -28,7 +28,8 @@ one key, scale and chord progression (SCALE), so their themes stay in harmony as
    range, with the odd trophy beyond it; weights from length.
 5. **REC** again with the line in the water pulls it in (that fish goes quiet).
 
-The rare fish play the "fish on" clip, if the build has one (GLOBAL page 2: on/off, level).
+A rare fish taking the line is the FISH ON! moment: the portrait, the words and the clip (GLOBAL page 2: clip on/off,
+level).
 
 ## The theme (SEQ again)
 
@@ -89,5 +90,6 @@ not read: the river starts fresh.
 
 Up to eight voices at once (the four parts, their release tails, live keys and the arpeggiator share them). With all
 four fish playing and the effects on, the audio takes about 56% of the chip's time at 240 MHz (measured by the
-firmware in fm1-emu; not yet on a real FM-1). The rare fish borrow their cousins' sprites until their own sheets
-arrive (`docs/ART_PROMPTS.md`); no clip ships unless one is supplied.
+firmware in fm1-emu; not yet on a real FM-1). Screens show graphs where they can: level meters on the river, the FM
+routing diagram on EDIT, the envelope and LFO shapes, the theme's piano roll, a piano octave on SCALE, best-size
+bars in the catch log.

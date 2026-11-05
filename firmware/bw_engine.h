@@ -122,6 +122,7 @@ typedef struct
     float mod_scale[BW_TRACKS], pitch_scale[BW_TRACKS], amp_scale[BW_TRACKS], pan_mod[BW_TRACKS];
     float bend[BW_TRACKS], fb_add[BW_TRACKS], metal[BW_TRACKS], send_boost[BW_TRACKS];
     int8_t live_oct;
+    float meter[BW_TRACKS]; /* each fish's output level, for the screen */
     uint32_t lfo_count;
     uint8_t live_track, arp, arp_n, arp_pos, arp_dir, rec_arm[BW_TRACKS], rec_left[BW_TRACKS];
     int8_t arp_held[16], live_note[BW_TRACKS];
@@ -164,6 +165,7 @@ void bw_restore_home(bw_engine *e, unsigned k);
 void bw_make_home(bw_engine *e, unsigned k);
 unsigned bw_weather(const bw_engine *e);
 uint32_t bw_weight_g(unsigned species, uint32_t mm);
+uint32_t bw_species_max_mm(unsigned species); /* the top of its usual range */
 /* names and data for the screen */
 extern const char *const bw_species_names[BW_SPECIES];
 extern const char *const bw_scale_names[BW_SCALES];

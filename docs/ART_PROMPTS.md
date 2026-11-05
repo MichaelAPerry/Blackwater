@@ -11,9 +11,10 @@ likeness, logo or title card. Keep the line "no people, no logos, no text" in ev
 text). The Jeremy Wade clip is audio only (see `docs/DEVELOPMENT.md`); no artwork depicts him.
 
 **In (2026-11-04):** the four common fish sheets, the props, the river triptych, the fish-on splash (used as the
-banner), the hero, link-preview, card and icon art. **Still wanted:** the four rare fish sheets (2b–5b: crappie,
-peacock bass, brook trout, flathead; until then they borrow their cousins' sprites with a gold glint) and the catch
-portraits (prompt 6; until then the card shows the landed sprite).
+banner), the hero, link-preview, card and icon art. **In (2026-11-05):** the four rare fish sheets and the FISH ON!
+portrait (`fish_on_portrait.png`, shown while the clip plays). **Optional:** the catch portraits (prompt 6; the card
+shows the landed sprite meanwhile). The importer finds each fish by its outline, so sheets need not be an exact grid
+(a 13th drawing, a near-black grid, uneven gaps are all fine).
 
 **How to send the results back:** the PNGs exactly as they come out (don't resize or recompress them), into
 `firmware/assets/art/<name>.png` with the names below. They become an art pack with a NOTICE that they were made

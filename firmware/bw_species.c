@@ -20,6 +20,10 @@ static const struct
     {150, 500, 1.1e-5f, 3.0f, BW_DEPTH_DEEP, BW_BAIT_WORM},      /* brook trout */
     {500, 1350, 3.0e-6f, 3.2f, BW_DEPTH_BOTTOM, BW_BAIT_JIG},    /* flathead catfish */
 };
+uint32_t bw_species_max_mm(unsigned species)
+{
+    return species < BW_SPECIES ? bw_fish_data[species].max_mm : 1;
+}
 uint32_t bw_weight_g(unsigned species, uint32_t mm)
 {
     if (species >= BW_SPECIES || !mm)

@@ -1408,7 +1408,8 @@ void bw_render(bw_engine *e, int32_t *lr, unsigned n, unsigned master)
                     tr[e->voice[i].track & 3] += bw_voice_sample(e, &e->voice[i]);
             for (k = 0; k < 4; k++)
             {
-                float x = bw_drive(tr[k], drv[k]) * vol[k];
+                float x = bw_drive(tr[k], drv[k]) * vol[k], ax = x < 0.0f ? -x : x;
+                e->meter[k] = ax > e->meter[k] ? ax : e->meter[k] * 0.9997f; /* peak, about 75 ms to fall 10 dB */
                 l += x * pan_l[k];
                 r += x * pan_r[k];
                 sr += x * srev[k];

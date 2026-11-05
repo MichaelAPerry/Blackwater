@@ -60,6 +60,7 @@ static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 2, 1, 4, 1, 1, 4, 1, 3, 
 static struct
 {
     uint32_t buttons, keys, last_draw, message_until, popup_until, last_input, event_seq, fight_ms;
+    uint32_t fish_on_seen, fish_on_until;
     uint8_t track, page, sub[BW_NPAGES], op, route_source, route_dest, patch_pick, slot_pick;
     uint8_t dirty, draw, held;
     int8_t preview[4];
@@ -180,9 +181,11 @@ uint32_t bw_midi_room(void)
     return plat_midi_out_room(TO_USB);
 }
 static uint32_t bw_clip_plays;
+static volatile uint32_t bw_fish_on_seq; /* a rare fish took the line: the FISH ON! moment */
 void bw_on_rare(unsigned k)
 {
     (void)k;
+    bw_fish_on_seq++;
     if (bw_pref.clip_on && bw_clip_present() && !bw_fish_on.active)
         bw_clip_plays++;
     if (bw_pref.clip_on)
@@ -317,6 +320,7 @@ void app_init(void)
         bw_ui.preview[k] = -1;
     memset(&bw_fish_on, 0, sizeof bw_fish_on);
     bw_clip_plays = 0;
+    bw_fish_on_seq = 0;
     bw_ui.route_source = 1;
     bw_ui.draw = 1;
     bw_ui.event_seq = bw.event.seq;
@@ -792,6 +796,11 @@ static void TR(int32_t xr, int32_t y, const felucca_font_t *f, const char *s, ui
 {
     T(xr - text_w(f, s), y, f, s, c);
 }
+static void L(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
+{
+    if (bw_in(y0 < y1 ? y0 : y1, (y0 < y1 ? y1 - y0 : y0 - y1) + 1))
+        cv_line(x0, y0 - bw_oy, x1, y1 - bw_oy, c);
+}
 static void P(int32_t x, int32_t y, uint16_t c)
 {
     if (bw_in(y, 1))
@@ -1052,6 +1061,58 @@ static void bw_draw_popup(void)
         T(20, 146, &FONT_XS, ev->rare ? "IT WAS SOMETHING BIG..." : "IT GOT AWAY", C_MUTE);
     }
 }
+/* FISH ON!: the portrait and the words, while the clip plays (or a moment, without one) */
+static void bw_draw_fish_on(uint32_t ms)
+{
+    R(0, 48, 240, 192, C_BG);
+    if (bw_art_portrait[0].px)
+        bw_sheet_draw2(&bw_art_portrait[0], 0, 8, 56, 1, 0);
+    else
+        R(8, 56, 112, 112, C_PANEL);
+    int32_t shake = (int32_t)(ms / 60u % 3u) - 1;
+    T(132 + shake, 70, &FONT_L, "FISH", C_GOLD);
+    T(132 - shake, 104, &FONT_L, "ON!", C_GOLD);
+    T(132, 146, &FONT_XS, "SOMETHING BIG", C_TXT);
+    T(132, 162, &FONT_XS, "IS ON THE LINE", C_TXT);
+    if (bw_art_banner[0].px)
+        bw_sheet_draw(&bw_art_banner[0], 0, 45, 182, 0, 0);
+}
+/* the patch's routing: modulators left, carriers right, a line for each route, the chosen operator outlined */
+static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned sel, uint16_t c)
+{
+    int depth[6], col_n[6] = {0, 0, 0, 0, 0, 0}, slot[6], xs[6], ys[6];
+    for (int i = 5; i >= 0; i--) /* a modulator's depth: one past the deepest operator it feeds */
+    {
+        depth[i] = 0;
+        for (int j = 0; j < i; j++)
+            if (p->route[i][j] && depth[j] + 1 > depth[i])
+                depth[i] = depth[j] + 1;
+    }
+    for (int i = 0; i < 6; i++)
+        slot[i] = col_n[depth[i]]++;
+    R(6, y0, 228, h, C_PANEL);
+    for (int i = 0; i < 6; i++)
+    {
+        int32_t bh = (h - 4) / (col_n[depth[i]] > 0 ? col_n[depth[i]] : 1);
+        xs[i] = 198 - depth[i] * 38;
+        ys[i] = y0 + 2 + slot[i] * bh + (bh - 7) / 2;
+    }
+    for (int i = 0; i < 6; i++)
+        for (int j = 0; j < i; j++)
+            if (p->route[i][j] && p->op[i].level)
+                L(xs[i] + 22, ys[i] + 3, xs[j], ys[j] + 3, (uint16_t)(p->route[i][j] > 50 ? C_TXT : C_MUTE));
+    for (int i = 0; i < 6; i++)
+    {
+        int32_t w = 2 + (int32_t)p->op[i].level * 20 / 100; /* brightness by level: a bar inside the box */
+        R(xs[i], ys[i], 22, 7, i == (int)sel ? C_YEL : C_BAR);
+        R(xs[i] + 1, ys[i] + 1, 20, 5, C_BG);
+        R(xs[i] + 1, ys[i] + 1, w > 20 ? 20 : w, 5, p->carrier[i] ? c : C_MUTE);
+        if (p->op[i].feedback)
+            R(xs[i] + 9, ys[i] - 2, 4, 1, C_PINK); /* feedback */
+        if (p->carrier[i])
+            L(xs[i] + 22, ys[i] + 3, 232, ys[i] + 3, C_BAR); /* to the output */
+    }
+}
 static void bw_draw_page(uint32_t ms)
 {
     char t[24], u[24];
@@ -1095,6 +1156,9 @@ static void bw_draw_page(uint32_t ms)
             if (st != BW_FISH_IDLE)
                 bw_draw_bobber(222, y + 24, i, ms);
             bw_bar(168, y + 10, 36, bw.track[i].volume, 100, bw_color(i));
+            int32_t m = (int32_t)(fm_minf(1.0f, bw.meter[i] * 2.0f) * 36.0f); /* what the fish is playing now */
+            R(168, y + 22, 36, 3, C_BG);
+            R(168, y + 22, m, 3, m > 32 ? C_PINK : bw_color(i));
         }
         break;
     }
@@ -1193,6 +1257,11 @@ static void bw_draw_page(uint32_t ms)
                     else
                         bw_cat(t, sizeof t, "-");
                     TR(234, yy, &FONT_XS, t, C_YEL);
+                    /* the best against the species' usual top size (a trophy runs past it, in gold) */
+                    uint32_t mx = bw_species_max_mm(i + rare * 4), b = l->best_mm;
+                    int32_t bw_ = (int32_t)(b >= mx ? 70 : b * 70 / mx);
+                    R(160, yy + 15, 70, 2, C_BAR);
+                    R(160, yy + 15, bw_, 2, b > mx ? C_GOLD : bw_color(i));
                 }
             }
         else
@@ -1215,11 +1284,42 @@ static void bw_draw_page(uint32_t ms)
         bw_param(122, 54, "K2 SCALE", bw_scale_names[s->scale], s->scale, BW_SCALES - 1, C_YEL);
         bw_param(6, 100, "K3 CHORDS", bw_progression_names[s->progression], 0, 0, C_YEL);
         bw_param_n(122, 100, "K4 SWING %", s->swing, 60, C_YEL);
-        T(6, 150, &FONT_XS, "NOW ON CHORD", C_MUTE);
+        T(6, 150, &FONT_XS, "CHORD NOW", C_MUTE);
         int r = bw_chord_root(&bw);
         T(110, 146, &FONT_B, roman[((r % 7) + 7) % 7], C_PINK);
-        T(6, 180, &FONT_XS, "ALL FOUR FISH FOLLOW THE KEY,", C_MUTE);
-        T(6, 198, &FONT_XS, "THE SCALE AND THE CHORDS", C_MUTE);
+        {
+            /* an octave from the key: the scale's notes lit, the chord's root and third and fifth bright */
+            int in[12] = {0}, chord[12] = {0};
+            for (int d = -14; d < 14; d++)
+            {
+                int n = bw_note_of(&bw, 2, d, 0) % 12;
+                in[n] = 1;
+            }
+            for (int d = 0; d <= 4; d += 2)
+                chord[bw_note_of(&bw, 2, d + r, 0) % 12] = 1;
+            /* a piano octave, C to B: seven white keys, five black ones over their gaps */
+            static const uint8_t white_pc[7] = {0, 2, 4, 5, 7, 9, 11}, black_after[5] = {0, 1, 3, 4, 5},
+                                 black_pc[5] = {1, 3, 6, 8, 10};
+            for (int w = 0; w < 7; w++)
+            {
+                int pc = white_pc[w];
+                int32_t x = 8 + w * 32;
+                R(x, 176, 30, 44, chord[pc] ? C_PINK : in[pc] ? C_YEL : C_TXT);
+                if (pc == s->key)
+                    R(x + 11, 212, 8, 4, C_BG); /* the key's own note */
+            }
+            for (int b = 0; b < 5; b++)
+            {
+                int pc = black_pc[b];
+                int32_t x = 8 + (black_after[b] + 1) * 32 - 10;
+                R(x - 1, 176, 20, 28, C_BG);
+                R(x + 1, 176, 16, 26, chord[pc] ? C_PINK : in[pc] ? RGB(150, 104, 40) : C_BAR);
+                if (pc == s->key)
+                    R(x + 5, 196, 6, 3, C_TXT);
+            }
+            T(8, 224, &FONT_XS, "IN THE SCALE", C_YEL);
+            T(100, 224, &FONT_XS, "IN THE CHORD", C_PINK);
+        }
         break;
     }
     case BW_EDIT:
@@ -1271,8 +1371,7 @@ static void bw_draw_page(uint32_t ms)
             T(122, 122, &FONT_XS, "K3 STORE (RIGHT)", bw_ui.patch_pick >= 4 ? C_TXT : C_MUTE);
             T(6, 150, &FONT_XS, "F1-F4 FACTORY, U1-U4 YOURS", C_MUTE);
         }
-        T(6, 196, &FONT_XS, "PRESETS: PAGE  WHITE KEYS: PLAY", C_MUTE);
-        T(6, 214, &FONT_XS, "BLACK KEYS: FM MACROS", C_MUTE);
+        bw_draw_algorithm(&tr->patch, 190, 48, bw_ui.op, c);
         break;
     }
     case BW_ENV:
@@ -1448,6 +1547,12 @@ static void bw_draw(void)
         bw_ui.dirty = 1;
     }
     int popup = (int32_t)(bw_ui.popup_until - ms) > 0 && bw_fish_state(&bw, bw_ui.track) != BW_FISH_FIGHT;
+    if (bw_fish_on_seq != bw_ui.fish_on_seen)
+    {
+        bw_ui.fish_on_seen = bw_fish_on_seq;
+        bw_ui.fish_on_until = ms + 1800u;
+    }
+    int fish_on = (int32_t)(bw_ui.fish_on_until - ms) > 0 || bw_fish_on.active;
     right[0] = 0;
     bw_text_copy(right, bw.playing ? "PLAYING" : "STOPPED", sizeof right);
     for (unsigned band = 0; band < 5; band++)
@@ -1461,9 +1566,14 @@ static void bw_draw(void)
                       right);
         else
         {
-            bw_draw_page(ms);
-            if (popup)
-                bw_draw_popup();
+            if (fish_on)
+                bw_draw_fish_on(ms);
+            else
+            {
+                bw_draw_page(ms);
+                if (popup)
+                    bw_draw_popup();
+            }
         }
         lcd_blit(0, band * 48, 240, 48, cv_px);
     }
