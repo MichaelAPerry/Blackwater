@@ -12,6 +12,7 @@
 #define BW_PPQN 96u
 #define BW_SPECIES 8 /* the four fish, then their rare cousins: species k + 4 */
 #define BW_KEYS 27
+#define BW_FLOW_WAVES 24
 enum { BW_MODE_RIVER, BW_MODE_FREE };
 enum { BW_LIFE_NONE, BW_LIFE_METEOR, BW_LIFE_UFO, BW_LIFE_JUMP, BW_LIFE_LEAF,
        BW_LIFE_BEE, BW_LIFE_FIREFLY, BW_LIFE_COUNT };
@@ -39,6 +40,12 @@ enum { BW_RIVER_QUIET, BW_RIVER_GROW, BW_RIVER_APPROACH, BW_RIVER_STRIKE,
        BW_RIVER_FIGHT, BW_RIVER_REVEAL, BW_RIVER_RETURN };
 enum { BW_WORLD_DUSK, BW_WORLD_UNDERTOW, BW_WORLD_FIREFLIES, BW_WORLDS };
 
+typedef struct
+{
+    float depth, strength;
+    uint32_t born;
+    uint8_t active, layer, note;
+} bw_flow_wave;
 /* Runtime only: the river does not alter the stored song/patch/session layouts. */
 typedef struct
 {
@@ -57,6 +64,9 @@ typedef struct
     uint32_t splash_at, splash_count;
     float nature_target[BW_NATURE_COUNT], nature_level[BW_NATURE_COUNT];
     float nature_phase[5], nature_step[4], nature_pan, nature_hiss, splash_filter;
+    bw_flow_wave waves[BW_FLOW_WAVES];
+    float flow_distance, flow_speed, flow_kick;
+    uint32_t flow_notes;
 } bw_river_state;
 
 typedef struct
@@ -207,6 +217,7 @@ void bw_keyboard_unlock(bw_engine *e,int unlocked);
 void bw_keyboard_layer(bw_engine *e,unsigned layer);
 void bw_performance_mode(bw_engine *e,unsigned mode);
 void bw_world_stop(bw_engine *e);
+void bw_flow_project(float depth,float *center,float *width,float *y);
 extern const char *const bw_world_names[BW_WORLDS];
 /* names and data for the screen */
 extern const char *const bw_species_names[BW_SPECIES];

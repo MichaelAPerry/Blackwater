@@ -40,8 +40,12 @@ crappie dorsal spines, brook-trout vermiculation, and the flathead's square tail
 
 ## Choreography
 
-The sixteen water curves have fixed positions in a shared family. Four remain at rest; detail fades in between
-them as the musical bloom opens. Crossing a complexity threshold does not redistribute the existing curves.
+Actual FM note starts launch coloured crests upstream and briefly push the current carrying earlier crests.
+They travel downstream towards the viewer, widen with the shore perspective, trail wakes and dissolve into the
+foreground. Pitch shapes the bend/span; velocity and layer level shape strength. A close chord reinforces one
+crest. Faint current moves between notes. The former anchored sixteen-curve/four-at-rest system is removed.
+Bloom opens colour, curvature and wakes without moving the banks. PLAY freezes the field. The fixed pool holds
+up to 24 crests; FREE and silent layers do not launch them.
 
 An approach gathers at the same central ripple that the line will meet. At the strike, the existing musical bloom
 eases down, the background yields, and the rod traces in. The rare-strike portrait traces into open space; it has
@@ -60,7 +64,9 @@ firmware's. This is host-verified choreography, not a measured device frame-rate
 Run the commands in [River review](RIVER_REVIEW.md). `vector_simulator.txt` captures actual quiet, growth,
 strike, fight, reveal and return states. `vector_portrait.txt` reaches a naturally occurring rare strike through
 ordinary controls. `vector_visual_test.py` checks sparse composition, visible growth, return to empty space and
-the portrait region. The recording is the evidence for motion; screenshot tests alone do not certify its feel.
+the portrait region. `flow_simulator.txt` isolates one real keyboard note; `flow_visual_test.py` tracks its crest
+downstream in actual LCD captures and checks pixel-identical paused water. `tools/render_flow_review.py` records
+the motion with its actual FM audio. Recordings remain the evidence for feel.
 
 The sound engines, species, saves, platform and existing emulator remain in place. Current device/browser
 verification is blocked by unavailable compiler/SDK downloads; no deployment is part of this visual change.

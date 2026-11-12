@@ -1635,7 +1635,8 @@ int app_expect(const char *what, int *got)
 {
     unsigned k = bw_ui.track;
     const bw_track *t = &bw.track[k];
-    unsigned notes = 0, active = 0, held = 0;
+    unsigned notes = 0, active = 0, held = 0, flow_waves=0;
+    for(unsigned i=0;i<BW_FLOW_WAVES;i++) flow_waves+=bw.river.waves[i].active;
     for (unsigned i = 0; i < t->cur.len; i++)
         notes += t->cur.s[i].gate == BW_GATE_NOTE;
     for (unsigned i = 0; i < BW_VOICES; i++)
@@ -1669,6 +1670,8 @@ int app_expect(const char *what, int *got)
                   {"night_light",(int)(bw.river.night*100)},
                   {"storm_light",(int)(bw.river.storm*100)},
                   {"reactive",(int)(bw.river.reactive*100)},
+                  {"flow_notes",(int)bw.river.flow_notes}, {"flow_waves",(int)flow_waves},
+                  {"flow_depth",(int)(bw.river.waves[0].depth*1000)},
                   {"river_phase", bw.river.phase},
                   {"river_bloom", (int)(bw.river.bloom * 100)},
                   {"world", bw.river.world},

@@ -59,6 +59,18 @@ wait, growth → strike → fight). `cicadas.wav` and `crickets.wav` isolate the
 no substitute sound engine or post-render sound layers are used. AUTO still cycles day/dusk/night/storm every
 three minutes; it is not sped up for the transition recording. Explicit WEATHER changes trigger that fade.
 
+The downstream-flow revision replaces the anchored rows with actual note-triggered crests and moving current:
+
+```sh
+python3 tools/render_flow_review.py --out build/flow-review
+```
+
+`one-note.mp4` isolates one actual keyboard note using the normal mixer and follows its crest downstream until
+it dissolves. `keyboard-current.mp4` plays keys over the other ambient layers; successive notes push the current
+and leave overlapping wakes. `encounter-current.mp4` shows growth → strike → fight at the ordinary thirty-second
+review wait. Each recording includes the actual rendered audio, input scenario and host log. No motion is added
+after capture. The latest flow behaviour supersedes older clips with the fixed four-line minimal river.
+
 ## What changed
 
 - One line, independent of four musical layers. All eight fish can approach; bait/depth influence the selection.

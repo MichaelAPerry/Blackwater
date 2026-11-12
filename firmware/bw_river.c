@@ -9,6 +9,7 @@ void bw_river_enable(bw_engine *e)
     e->river.noise = 0x72697665u;
     e->river.modulation_rng = 0x77617465u;
     bw_life_init(e);
+    bw_flow_clear(e);
     unsigned weather=bw_weather(e);
     e->river.daylight=weather==BW_WEATHER_DAY;
     e->river.night=weather==BW_WEATHER_NIGHT;
@@ -21,6 +22,7 @@ void bw_river_enable(bw_engine *e)
  * exact patch/song/track bytes until this command is used; no save-format/version reset is needed. */
 void bw_river_world(bw_engine *e, unsigned world)
 {
+    bw_flow_clear(e);
     e->river.world = (uint8_t)(world % BW_WORLDS);
     static const uint8_t source[3][4] = {{3, 3, 2, 0}, {3, 3, 2, 3}, {3, 2, 0, 2}};
     static const uint8_t slot[3][4] = {{3, 0, 1, 3}, {1, 2, 2, 3}, {3, 1, 1, 3}};
@@ -226,6 +228,7 @@ static void bw_river_control(bw_engine *e)
         }
     bw_life_tick(e);
     bw_nature_control(e);
+    bw_flow_tick(e);
 }
 
 /* Two stereo bands of filtered noise alongside FM. Independent PRNG keeps texture/sample rate from

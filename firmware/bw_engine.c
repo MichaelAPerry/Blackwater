@@ -22,6 +22,7 @@ static void bw_river_finish(bw_engine *e);
 static void bw_river_control(bw_engine *e);
 static void bw_algorithm_impl(bw_patch *t, unsigned algorithm);
 static void bw_voice_prepare(bw_engine *e, bw_voice *v);
+static int bw_track_audible(const bw_engine *e,unsigned k);
 void bw_algorithm(bw_patch *p, unsigned algorithm)
 {
     bw_algorithm_impl(p, algorithm);
@@ -565,6 +566,7 @@ static bw_voice *bw_alloc(bw_engine *e, unsigned k, int live)
         }
     return best;
 }
+#include "bw_flow.c"
 static void bw_voice_on(bw_engine *e, bw_voice *v, unsigned k, unsigned note, unsigned velocity, int legato)
 {
     const bw_patch *p = &e->track[k].patch;
@@ -578,6 +580,7 @@ static void bw_voice_on(bw_engine *e, bw_voice *v, unsigned k, unsigned note, un
     {
         e->river.played_note[k]=(uint8_t)note;
         e->river.note_flash[k]=1;
+        bw_flow_note(e,k,note,velocity);
     }
     v->age = ++e->age;
     for (i = 0; i < 6; i++)

@@ -1,5 +1,24 @@
 # BLACKWATER project record
 
+## Notes drive downstream flow, approved 2026-11-12
+
+The user corrected the anchored water rows: notes should push flow down the river. This supersedes the older
+fixed sixteen-curve/four-at-rest presentation. Each audible FM note start now launches a coloured crest upstream
+and briefly strengthens the current carrying existing crests. The projected crests travel towards the viewer,
+widen with the shore perspective, leave wakes and dissolve in the foreground. Pitch shapes their curvature/span;
+velocity and layer level shape strength. A close chord reinforces one crest. Faint current moves between notes.
+No surface row stays anchored; banks and ground remain stable. Musical bloom opens colour, bending and wakes,
+then encounter/recovery settle those while notes keep moving. Keyboard, generative and shooting-star notes use
+the same actual FM trigger; silent layers and FREE do not emit river crests. PLAY freezes all river movement.
+
+The fixed pool of 24 runtime impulses and five-band projected geometry cache introduce no framebuffer, allocation,
+audio change, encounter RNG or saved-layout change. The engine advances flow independently of the displayed page.
+Tests cover downstream/widening motion, current acceleration, finite pool/expiry, chord reinforcement, mute/FREE,
+and pause. Host image checks track one real keyboard crest from upstream to foreground and verify frozen pixels
+on pause; visual growth/recovery checks now assess colour rather than a fixed count of water rows.
+Review: `tools/render_flow_review.py` records isolated-note, keyboard/current and encounter clips through the actual
+firmware and host audio. Device/browser/hardware verification retains the documented toolchain limitations.
+
 ## Riverbanks, reactive colour and nature sound, approved 2026-11-12
 
 The user requested more wildlife detail and passing sounds, splashes/wind, more reactive psychedelic colour,

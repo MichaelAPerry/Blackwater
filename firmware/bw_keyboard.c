@@ -93,6 +93,7 @@ void bw_performance_mode(bw_engine *e,unsigned mode)
     mode=mode==BW_MODE_FREE ? BW_MODE_FREE:BW_MODE_RIVER;
     if(e->mode==mode) return;
     bw_panel_clear(e);bw_all_notes_off(e);bw_transport(e,0);
+    bw_flow_clear(e);
     e->mode=(uint8_t)mode;
     e->river.phase=BW_RIVER_QUIET;e->river.phase_at=e->river.ms;
     e->river.growth=e->river.bloom=e->river.pressure=0;

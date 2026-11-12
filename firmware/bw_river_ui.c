@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* A single composition: persistent water curves, traced foreground, eased ink and consistent margins. */
+/* A single composition: travelling water, traced foreground, eased ink and consistent margins. */
 static void bw_draw_river_scene(uint32_t now, int setup)
 {
     const bw_river_state *r=&bw.river;

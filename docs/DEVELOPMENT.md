@@ -9,7 +9,7 @@ does for a player: [MANUAL.md](MANUAL.md). The device build and the emulator/bro
 
 `bw_river.c` (included by the engine) coordinates elapsed-time phases and musical gestures; `bw_river_ui.c`
 (included by the app) coordinates the visual transitions. `bw_vector.c` supplies geometry, fixed-point
-antialiased subpixel strokes and the persistent water curves, using fm1-base's existing band canvas. The firmware
+antialiased subpixel strokes and the stable shoreline, using fm1-base's existing band canvas. The firmware
 no longer generates/includes bw_art.h. `make_line_font.py` generates the original monoline typeface after the
 platform font step through the supported app-generator hook. No platform files are changed. Old artwork/import tools remain archived and independently testable.
 `bw_engine.h` adds runtime state only. The stored song/track/patch/log layouts and version remain unchanged.
@@ -40,6 +40,15 @@ existing master still controls all audio. The light/insect state fades with weat
 `nature_test.c` checks real audio, insect selection, lighting transitions, event sources, splash timing and
 pause/FREE silence. `nature_simulator.txt` exercises weather preview, in-play crossfade and saved light state.
 Water/grass use the same stable shore geometry; colour reads actual note-on pitches/attacks and output energy.
+
+`bw_flow.c` hooks actual FM starts into a fixed pool of 24 runtime crests and a short current impulse. The river's
+10 ms clock advects the pool and faint background current independently of the UI page; pause freezes it, FREE/
+world switches clear it. Muted/zero-level/silent-carrier notes do not emit; close chords reinforce a single crest.
+`bw_flow_project` supplies shared bank/water perspective. `bw_flow_ui.c` replaces the anchored grid with moving
+heads/wakes and caches projected subpixel vertices for reuse across the five bands. It adds no full framebuffer.
+`flow_test.c` checks actual note emission, downstream widening, acceleration, pause/expiry and pool bounds;
+`flow_simulator.txt`/`flow_visual_test.py` verify one real keyboard crest moves down the displayed river and freezes
+on pause. Geometry remains sparse; colour growth/recovery replaces the old fixed-row density assertion.
 
 See [River review](RIVER_REVIEW.md) for artifacts, exact limits and current controls. The earlier source-map and
 sound-design notes below describe the prior version where they refer to fixed fish roles or rapid sequencer steps.
