@@ -7,6 +7,8 @@ name: Pages
 
 on:
   push:
+    branches: [main, 'codex/**']
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -14,10 +16,10 @@ permissions:
   contents: read
 
 env:
-  VERSION: "0.3"   # the release the site carries and installs (identity FM-1_77XXYYZZ)
+  VERSION: "0.4"   # River edition; save format remains v0.3 (identity FM-1_77XXYYZZ)
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -39,7 +41,7 @@ jobs:
           build/venv/bin/pip install -q -r requirements-dev.txt
           build/venv/bin/python -c "from PIL import features; assert features.check('raqm'), 'Pillow without raqm'"
           rustup target add wasm32-unknown-unknown
-          npm install --no-save --no-audit --no-fund playwright@1.63.0
+          npm install --no-save --package-lock=false --no-audit --no-fund playwright@1.63.0
           npx playwright install --with-deps chromium
       - name: Toolchain and SDK
         run: |
@@ -57,7 +59,10 @@ jobs:
           echo "JIELI_TOOLCHAIN=$RUNNER_TEMP/jieli/toolchain" >> "$GITHUB_ENV"
           echo "AC79_SDK=$sdk" >> "$GITHUB_ENV"
       - name: Host tests
-        run: PATH="$PWD/build/venv/bin:$PATH" sh tests/run_tests.sh && build/venv/bin/python tests/package_metadata_test.py
+        run: |
+          PATH="$PWD/build/venv/bin:$PATH" sh tests/run_tests.sh
+          build/venv/bin/python tests/package_metadata_test.py
+          build/venv/bin/python tests/site_test.py
       - name: Device package
         # BW_PUBLIC_SAFE=1 would leave out the fish-on clip and the portrait (docs/RIGHTS.md); the owner's decision
         # is to include them, with the notice on the page
@@ -83,6 +88,7 @@ jobs:
           path: build/site
 
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-24.04
     permissions:

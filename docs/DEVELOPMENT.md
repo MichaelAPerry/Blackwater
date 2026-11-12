@@ -97,8 +97,20 @@ python3 tests/package_metadata_test.py
 
 ## Public builds
 
-`BW_PUBLIC_SAFE=1 ./build.sh` leaves out the fish-on clip and the portrait (the Pages workflow sets it) until
-their owners give permission: see [RIGHTS.md](RIGHTS.md).
+The user authorized the 0.4 website update, merge to main and Pages installer deployment on 2026-11-12.
+`site/index.html`/`style.css` contain the landing presentation. `tools/site_content.py` assembles it and the
+unchanged platform installer/backup/manual; the installer fetches the same content-hashed package as the emulator.
+`tools/capture_site_media.py` refreshes actual host screenshots/recording and `site/media.json` provenance.
+`tools/preview_site.py` creates a clearly labelled landing-only preview with no installer or replacement emulator.
+`tests/site_test.py` checks content, native-size media and installer identity/URL contracts. Browser landing checks
+are in `tools/site_smoke.mjs`; release builds also run the full actual-package controls/audio/storage test.
+
+Pushes to `codex/**` and PRs run the build checks; only main can deploy. The release workflow sets version 0.4.
+Device compilation and memory checks, native/Wasm emulation, and Chromium all remain required before Pages upload.
+
+Pages uses `BW_PUBLIC_SAFE=0` under the owner's recorded inclusion decision: see [RIGHTS.md](RIGHTS.md).
+`BW_PUBLIC_SAFE=1 ./build.sh` suppresses the supplied speech clip; the procedural line portrait is part of the
+current scene drawing.
 
 ## Design notes
 

@@ -1,5 +1,21 @@
 # BLACKWATER project record
 
+## Website, release 0.4 and main/Pages publication, approved 2026-11-12
+
+The user explicitly authorized updating the website and README, then merging to main so Pages publishes the
+installer for their own FM-1 test. This supersedes the earlier publication hold for these changes. The website
+now presents the current flowing line-art river, nature/lighting, eight fish and full-key/Free performance, using
+actual native-host screenshots and recording. `site/media.json` records their provenance; no physical-device
+footage or replacement emulator is represented. The README reflects current controls and installation.
+
+Pages release version is 0.4; the v0.3 session format remains unchanged. Review-branch/PR builds validate but do
+not deploy; pushes to main build and publish automatically after all checks. The installer uses the exact build's
+content-hashed package URL, retaining the platform's identity/CRC and transfer logic. Native/Wasm/Chromium gates
+remain mandatory. Browser checks now exercise actual world/FM controls, an unattended encounter while off-page,
+saved catch records and tempo, Free operator selection and a chromatic black key. Landing checks cover desktop/
+mobile layout, real video playback, media and installer/package consistency. Physical FM-1 testing remains the
+owner's next step; no hardware claim is made from host/browser checks.
+
 ## Notes drive downstream flow, approved 2026-11-12
 
 The user corrected the anchored water rows: notes should push flow down the river. This supersedes the older

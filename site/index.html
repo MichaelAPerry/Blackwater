@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BLACKWATER — a river you can play</title>
+  <meta name="description" content="An ambient musical river for the M-VAVE FM-1. Play the current, meet its wildlife, and wait for a fish to break the stillness.">
+  <meta property="og:title" content="BLACKWATER — a river you can play">
+  <meta property="og:description" content="Slow FM currents, a living river, and moments of tension. Alternative firmware for the M-VAVE FM-1.">
+  <meta property="og:image" content="https://michaelaperry.github.io/Blackwater/assets/screens/river.png">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#090e12">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  {{PREVIEW_NOTICE}}
+  <header class="nav wrap">
+    <a class="brand" href="./" aria-label="BLACKWATER home"><img src="assets/icon.svg" alt="" width="30" height="30">BLACKWATER</a>
+    <nav aria-label="Main"><a href="#river">The river</a><a href="#play">Play</a><a href="manual/">Manual</a>{{INSTALL_NAV}}</nav>
+  </header>
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> ALTERNATIVE FIRMWARE / M-VAVE FM-1</p>
+        <h1 id="hero-title">A river<br>you can play.</h1>
+        <p class="intro">Slow FM currents. A world that breathes.<br>Then, somewhere below the surface, a fish.</p>
+        <div class="actions">{{INSTALL_ACTION}}<a class="button secondary" href="#play">Play in the browser <span aria-hidden="true">→</span></a></div>
+        <p class="build-line">{{VERSION_LABEL}} <span aria-hidden="true">/</span> Open source <span aria-hidden="true">/</span> Physical testing pending</p>
+      </div>
+      <figure class="river-display">
+        <div class="display-top"><span>THE CURRENT</span><span>01 / RIVER</span></div>
+        <video id="river-film" controls muted loop playsinline preload="metadata" poster="assets/screens/river.png" aria-label="Actual BLACKWATER firmware: keyboard notes carry coloured crests down the river">
+          <source src="assets/current.mp4" type="video/mp4">
+          <a href="assets/current.mp4">Watch the river recording</a>
+        </video>
+        <figcaption><span class="status-dot"></span> Actual firmware capture. Play to watch; unmute to listen.</figcaption>
+      </figure>
+    </section>
+
+    <div class="spec-strip wrap" aria-label="Instrument features"><span>6-OPERATOR FM</span><span>4 MUSICAL LAYERS</span><span>8 FISH SPECIES</span><span>27 PLAYABLE KEYS</span></div>
+
+    <section class="section wrap" id="river" aria-labelledby="river-title">
+      <div class="section-heading"><p class="eyebrow">01 / SETTLE IN</p><h2 id="river-title">The notes become<br>the current.</h2><p>Each note sends a coloured crest downstream. It widens, leaves a wake and dissolves into the foreground. Play gently, or push the river open.</p></div>
+      <div class="scene-grid">
+        <figure class="scene"><img src="assets/screens/growth.png" width="240" height="240" alt="Saturated travelling water crests growing between grassy riverbanks" loading="lazy"><figcaption><span>01</span><h3>Grow with the sound</h3><p>Pitch, note attacks and musical energy shape the moving lines. Choose DUSK, UNDERTOW or FIREFLIES.</p></figcaption></figure>
+        <figure class="scene"><img src="assets/screens/night.png" width="240" height="240" alt="The line-drawn river at night under a crescent and stars" loading="lazy"><figcaption><span>02</span><h3>A living riverbank</h3><p>Wind and leaves, jumping fish and splashes, bees, fireflies and shooting-star motifs. A UFO, if you wait.</p></figcaption></figure>
+        <figure class="scene"><img src="assets/screens/strike.png" width="240" height="240" alt="A rare FISH ON moment with the traced fisherman portrait and rod" loading="lazy"><figcaption><span>03</span><h3>A moment of clarity</h3><p>The river gathers for a strike, the tension rises, then the encounter fades back into the current.</p></figcaption></figure>
+      </div>
+      <div class="weather-note"><span class="eyebrow">DAY → DUSK → NIGHT → STORM</span><p>Light and insects change together. Daytime cicadas give way to dusk and nighttime crickets. AUTO changes weather every three minutes; GLO page 1 / K3 holds a scene.</p></div>
+      <details class="field-guide"><summary>Eight fish, one river</summary><div class="field-grid"><img src="assets/screens/fish-guide.png" width="240" height="240" alt="The actual firmware field guide, showing eight distinct fish drawings" loading="lazy"><div><h3>Meet the inhabitants</h3><p>Bluegill and Crappie. Largemouth Bass and Peacock Bass. Brown Trout and Brook Trout. Channel Catfish and Flathead Catfish.</p><p>Bait and depth influence the encounter. Each species has its own line drawing and catch records; the musical voice you play does not restrict which fish can visit.</p></div></div></details>
+    </section>
+
+    <section class="section play-section" aria-labelledby="hands-title">
+      <div class="wrap hands-grid">
+        <figure class="free-display"><img src="assets/screens/free-play.png" width="240" height="240" loading="lazy" alt="FREE PLAY screen showing the selected voice, six FM operators and all 27 keys"><figcaption>One voice. Six operators. Your hands.</figcaption></figure>
+        <div><p class="eyebrow">02 / FIND YOUR OWN PACE</p><h2 id="hands-title">Listen. Fish.<br>Or just play.</h2>
+          <div class="mode"><span>RIVER</span><p>Leave a line in the water, or lift it and listen. Fish actively or let encounters unfold unattended. Unlock all 27 chromatic keys to take over one musical layer.</p></div>
+          <div class="mode"><span>FREE PLAY</span><p>No automatic composition or fishing. Play the full keyboard. SELECT chooses the FM operator to edit; ALGO chooses the voice. K1–K4 shape ratio, level, feedback and algorithm.</p></div>
+          <p class="small-note">GLO page 4 selects the mode, river key mapping, keyboard voice and octave. SAVE keeps your session.</p>
+          <a class="text-link" href="manual/">Explore the controls <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="play" aria-labelledby="play-title">
+      <div class="section-heading horizontal"><div><p class="eyebrow">03 / STEP INTO THE RIVER</p><h2 id="play-title">Try it here.</h2></div><p>The real FM-1 package runs in the existing fm1-emu emulator. Press its Start button, then Space for PLAY. Sound may take a moment to open.</p></div>
+      {{PLAYER}}
+      <details class="browser-controls"><summary>Computer keyboard &amp; panel controls</summary><div class="controls-grid">
+        <p><kbd>Space</kbd> play/pause · <kbd>R</kbd> place/lift/hook · <kbd>7</kbd> home · <kbd>0</kbd> fishing/motif</p>
+        <p><kbd>5</kbd> FM edit · <kbd>3</kbd> envelope · <kbd>4</kbd> LFO · <kbd>1</kbd> FX · <kbd>9</kbd> arp · <kbd>6</kbd> global · <kbd>8</kbd> save</p>
+        <p>Left/right arrows: SELECT. Up/down: PRESET. <kbd>,</kbd> / <kbd>.</kbd>: ALGO. Drag or scroll the panel knobs for K1–K4.</p>
+        <p>The computer piano keys follow the selected mapping. In FREE, SELECT edits an operator. Use the full emulator for more room. A slow device may stutter at the chip’s 240 MHz.</p>
+      </div></details>
+      <div class="under-player">{{EMULATOR_LINK}}<a href="manual/">Player’s manual</a><a href="backup/">Back up / restore</a></div>
+    </section>
+
+    <section class="install-section" aria-labelledby="install-title"><div class="wrap install-grid">
+      <div><p class="eyebrow">04 / TAKE IT TO THE WATER</p><h2 id="install-title">On your FM-1.</h2><p>Connect by USB and open the installer in desktop Chrome or Edge. Back up your sessions first; the install page guides the connection and firmware transfer.</p></div>
+      <div class="install-box">{{INSTALL_ACTION}}<p>{{VERSION_LABEL}} · Development firmware<br>Physical FM-1 testing is still pending.</p><a href="backup/">Back up sessions before installing →</a>{{PACKAGE_LINK}}</div>
+    </div></section>
+  </main>
+  <footer class="wrap">
+    <div class="footer-main"><a class="brand" href="./">BLACKWATER</a><p>An ambient musical river. Built on <a href="https://github.com/charlesvestal/fm1-base">fm1-base</a> and <a href="https://github.com/hugelton/felucca-bsp">felucca-bsp</a>.<br>Browser instrument: <a href="https://github.com/joakimeriksson/fm1-emu">fm1-emu by Joakim Eriksson</a>.</p><a href="https://github.com/MichaelAPerry/Blackwater">Source →</a></div>
+    <p class="notice">Unofficial fan project; not affiliated with or endorsed by M-VAVE, Jeremy Wade, Fish On!, River Monsters or Oxford Scientific Films. The rare-strike portrait is an original line-art homage; the brief “Fish on!” clip is a sound in an original musical work. Rights concerns: <a href="https://github.com/MichaelAPerry/Blackwater/issues">contact the project</a>.</p>
+    <div class="provenance"><a href="build.json">Build &amp; validation details</a><a href="licenses/THIRD_PARTY.md">Credits &amp; licences</a><span>Source {{SOURCE_SHORT}}</span><details><summary>Package SHA-256</summary><code>{{PACKAGE_HASH}}</code></details></div>
+  </footer>
+</body>
+</html>

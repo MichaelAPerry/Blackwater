@@ -10,6 +10,7 @@ import {mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, readdir
 import {createRequire} from 'node:module';
 import {extname, join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
+import {checkLanding} from './site_smoke.mjs';
 
 const [siteArg, outArg] = process.argv.slice(2);
 if (!outArg) throw Error('usage: node tools/browser_smoke.mjs SITE_DIR OUT_DIR');
@@ -21,7 +22,8 @@ try { playwright = require('playwright'); }
 catch { playwright = require(require.resolve('playwright', {paths: [resolve(process.execPath, '../../lib/node_modules')]})); }
 
 const types = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm',
-    '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.pdf': 'application/pdf'};
+    '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.pdf': 'application/pdf',
+    '.svg': 'image/svg+xml', '.mp4': 'video/mp4'};
 const server = createServer((req, res) => {
     const path = join(site, decodeURIComponent(new URL(req.url, 'http://x').pathname));
     const file = existsSync(path) && !path.endsWith('/') ? path : join(path, 'index.html');
@@ -75,6 +77,7 @@ async function startPage(page) {
 
 const profile = mkdtempSync(join(tmpdir(), 'bw-browser-'));
 const browser = await playwright.chromium.launchPersistentContext(profile, {
+    executablePath: process.env.BLACKWATER_CHROMIUM || undefined,
     args: ['--autoplay-policy=no-user-gesture-required'], viewport: {width: 1280, height: 1000}});
 const result = {url, steps: []};
 const log = (step, extra = {}) => { result.steps.push({step, ...extra}); console.log(step, JSON.stringify(extra)); };
@@ -108,98 +111,96 @@ try {
     };
     const boot = () => startPage(page);
 
+    await checkLanding(page, `http://127.0.0.1:${server.address().port}/`, out);
+    log('landing: desktop/mobile, recording and current installer checked');
     await boot();
-    const status = await page.locator('#status').textContent().catch(() => '');
-    log('booted', {status});
-    await press('7');                               // HOME on the river: the catch log
-    const emptyLog = await shot('0-log-empty');   // the catch log before any fish
-    const rowsEmpty = await part('0b-log-rows-empty', 54, 150);
-    await press('7');                               // HOME again: back to the river
-    const river = await shot('1-river');
-    // the panel's own knobs, with the mouse (the wheel over a knob turns it a detent per notch), as a person does:
-    // K1 on the river is the bluegill's level, shown in the knob bar; PRESET there is the weather, in the header
-    const barBefore = await part('k1-bar-before', 211, 29);
-    await wheel(935, 120, 5);                                  // KNOB1
-    const barAfter = await part('k1-bar-after', 211, 29);
-    assert.ok(!barAfter.equals(barBefore), 'K1 (mouse) did not change the knob bar');
-    await wheel(935, 120, -5);
-    // PRESETS: the weather (the header's icon and a message); a turn may land between two of the page's frames,
-    // so up to three tries, each one kept as evidence
-    let presetChanged = false;
-    for (let i = 0; i < 3 && !presetChanged; i++) {
-        const headBefore = await part(`preset-head-before-${i}`, 0, 47);
-        await wheel(110, 295, 1);                              // PRESETS
-        await page.waitForTimeout(400);
-        const headAfter = await part(`preset-head-after-${i}`, 0, 47);
-        presetChanged = !headAfter.equals(headBefore);
-        log('preset try', {try: i, changed: presetChanged});
-    }
-    assert.ok(presetChanged, 'PRESET (mouse) did not change the header (the weather), three tries');
-    log('mouse: K1 and PRESET change the screen');
-    // encoders, as the page's keys turn them (fm1-emu: arrows left/right SELECT, up/down PRESETS, , . ALGORITHM)
-    const turn = async (key, name) => { await page.keyboard.press(key); await page.waitForTimeout(400); return lcdShot(page, name); };
-    const home = await lcdShot(page, '8-river');
-    const track2 = await turn('.', '9-algorithm-track2');
-    assert.ok(!track2.equals(home), 'ALGORITHM did not select another track');
-    const next = await turn('ArrowRight', '11-select-next-screen');
-    assert.ok(!next.equals(track2), 'SELECT did not move to the next screen');
-    log('encoders change the display');
-    await press(',');                                    // back to the first fish
-    await press('7');                                    // and the river
+    log('booted', {status: await page.locator('#status').textContent().catch(() => '')});
+    await press('7'); // HOME -> catch log, before any encounters.
+    const rowsEmpty = await part('0-log-empty', 54, 150);
+    await press('7');
 
+    // PRESET loads a sound world while stopped, and changes its actual heading.
+    const worldBefore = await part('world-before', 0, 47);
+    await wheel(110, 295, 1);
+    const worldAfter = await part('world-after', 0, 47);
+    assert.ok(!worldBefore.equals(worldAfter), 'PRESET did not load another world');
+    await wheel(110, 295, -1); // DUSK again.
+    await press('5'); // EDIT has the real parameter bar; RIVER is deliberately a clean landscape.
+    const ratioBefore = await part('ratio-before', 211, 29);
+    await wheel(935, 120, 4);
+    const ratioAfter = await part('ratio-after', 211, 29);
+    assert.ok(!ratioBefore.equals(ratioAfter), 'K1 did not edit the FM ratio');
+    await wheel(935, 120, -4);
+    const voiceBefore = await part('voice-before', 0, 70);
+    await page.keyboard.press('.'); await page.waitForTimeout(500);
+    const voiceAfter = await part('voice-after', 0, 70);
+    assert.ok(!voiceBefore.equals(voiceAfter), 'ALGO did not select another voice');
+    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(500);
+    const envelope = await part('select-envelope', 0, 70);
+    assert.ok(!envelope.equals(voiceAfter), 'SELECT did not open the next editor');
+    await page.keyboard.press(','); await page.waitForTimeout(400);
+    log('mouse/encoders: world, FM ratio, voice and page controls work');
+
+    await press('6'); // GLOBAL page 1. A persistent, unambiguous saved parameter as well as catch records.
+    const tempoDefault = await part('tempo-default', 50, 50);
+    await wheel(935, 120, 7); // 96 -> 103 BPM.
+    const tempoSaved = await part('tempo-edited', 50, 50);
+    assert.ok(!tempoSaved.equals(tempoDefault), 'tempo did not change');
+    await press('7');
     const idle = await level(1000);
-    log('stopped level', {rms: idle});
+    await press(' '); // The line starts in the water; PLAY also sounds with it lifted.
+    const playing = await level(4000);
+    assert.ok(playing > 0.001 && playing > idle * 4, `no river playback (${playing} vs ${idle})`);
+    await shot('river-playing');
+    log('river audio', {rms: playing});
 
-    await press('r');            // REC: cast the selected track's hook
-    await press(' ');            // PLAY
-    const playing = await level(3000);
-    log('playing level', {rms: playing});
-    assert.ok(playing > 0.001 && playing > idle * 4, `no audio from playback (${playing} vs ${idle})`);
-    const cast = await shot('2-hook-placed');
-    assert.ok(!cast.equals(river), 'REC/PLAY did not change the display');
-
-    await press('0');            // SEQ: fishing screen
-    const fishing = await shot('3-fishing');
-    assert.ok(!fishing.equals(cast), 'SEQ did not change the display');
-    // a real wait is minutes: for the test, the bluegill's K1/K2 (shortest, longest wait) down to 0, by mouse
-    await wheel(935, 120, -40);                                // KNOB1: the shortest (first: the longest stays above it)
-    await wheel(1028, 120, -40);                               // KNOB2: the longest
-    await shot('3b-fishing-no-wait');
-
-    // play: answer the bites and reel in, as a player does, with REC (R), for forty seconds; screens on the way
-    let shots = 0;
-    for (let t = 0; t < 40000; t += 700) {
-        await press('r', 580);
-        if (t % 7000 < 700 && shots < 6) await shot(`3-playing-${shots++}`);
+    await press('0'); // SEQ -> line settings.
+    await wheel(935, 120, -25);  // minimum wait -> 0 (five seconds per detent).
+    await wheel(1028, 120, -50); // maximum wait -> 0.
+    await wheel(1121, 120, -1);  // FISH -> LISTEN: retain the real approach/strike/fight/reveal timings.
+    await shot('line-listen-zero-wait');
+    await press('7'); await press('7'); // Catch log: the encounter continues off-page.
+    let caught = false;
+    for (let second = 0; second < 90; second++) {
+        await page.waitForTimeout(1000);
+        const rows = await part('log-waiting', 54, 150);
+        if (!rows.equals(rowsEmpty)) { caught = true; break; }
     }
-    await press('7');            // HOME: the river (from FISHING)
-    await press('7');            // HOME again: the catch log
-    const stats = await shot('4-stats-before-save');
-    assert.ok(!stats.equals(fishing), 'SEL did not change the display');
-    log('statistics shown');
+    assert.ok(caught, 'LISTEN did not complete an encounter while the catch log was open');
+    await shot('catch-recorded');
+    await press(' '); // pause before saving; no additional encounter can change the record.
+    await press('8', 1500);
+    await page.locator('#save-now').click(); await page.waitForTimeout(1500);
+    const rowsAtSave = await part('log-at-save', 54, 150);
+    await press('6'); await shot('global-load');
+    log('catch and tempo saved', {status: await page.locator('#status').textContent().catch(() => '')});
 
-    log('after a minute', {status: await page.locator('#status').textContent().catch(() => '')});
-    await press(' ');            // stop, so the saved state is quiet
-    await press('8', 1500);      // SAVE (the firmware's own storage object)
-    await shot('5-after-save');
-    await page.locator('#save-now').click();          // the page writes the emulated flash to this browser
-    await page.waitForTimeout(1500);
-    const rowsBeforeSave = await part('4b-log-rows-at-save', 54, 150);   // the log as saved
-    log('saved');
+    await boot();
+    await press('7');
+    const restored = await part('log-restored', 54, 150);
+    assert.ok(restored.equals(rowsAtSave), 'catch records did not survive reload');
+    await press('6');
+    const tempoRestored = await part('tempo-restored', 50, 50);
+    assert.ok(tempoRestored.equals(tempoSaved), 'edited tempo did not survive reload');
+    log('saved catch records and tempo survived reload');
 
-    await press('6');            // GLO: the audio's own load and xruns, after a minute of playing
-    await shot('5b-global-load');
-    await boot();                // reload: the same browser profile, a fresh firmware boot
-    await press('7');            // the river is first: HOME once is the catch log
-    const restored = await shot('6-stats-after-reload');
-    log('reloaded');
-
-    // the catch log's rows (not the header): playing caught fish, and the reload shows exactly those
-    const rows = async name => part(name, 54, 150);
-    const rowsRestored = await rows('6b-log-rows-after-reload');
-    assert.ok(!rowsBeforeSave.equals(rowsEmpty), 'a minute of play caught nothing: the log rows are as empty as at the start');
-    assert.ok(rowsRestored.equals(rowsBeforeSave), 'the catch log after the reload is not the one saved');
-    log('playing caught fish; the catch log survived the reload');
+    // New performance page and SELECT behaviour in FREE, using only the emulator's real panel.
+    for (let i = 0; i < 3; i++) { await page.keyboard.press('ArrowUp'); await page.waitForTimeout(400); }
+    await wheel(1028, 120, 1); // unlock all 27 river keys.
+    await wheel(935, 120, 1);  // FREE.
+    await press('7');
+    const operatorBefore = await part('free-operator-1', 0, 70);
+    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(400);
+    const operatorAfter = await part('free-operator-2', 0, 70);
+    assert.ok(!operatorAfter.equals(operatorBefore), 'FREE SELECT did not choose an operator');
+    await page.waitForTimeout(8000); // let earlier river/reverb tails settle.
+    const freeIdle = await level(500);
+    await page.keyboard.down('w'); // a black piano key must be a note, not a macro, in FREE.
+    const freeNote = await level(2000);
+    await page.keyboard.up('w');
+    assert.ok(freeNote > 0.0003 && freeNote > freeIdle * 2, 'FREE black key did not play the FM voice');
+    await shot('free-play');
+    log('FREE: SELECT operator and chromatic key audio', {idle: freeIdle, note: freeNote});
 
     result.errors = errors;
 } finally {

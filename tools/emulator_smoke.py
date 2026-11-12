@@ -24,7 +24,7 @@ a.out.mkdir(parents=True, exist_ok=True)
 run = Path(tempfile.mkdtemp(prefix='native-', dir=a.out.resolve()))
 (run/'work').mkdir()
 command = [str(a.emulator.resolve()), '--fwsc', str(a.package.resolve()), '--ms', '5500',
-           '--keys', '1200:REC,1500:PLAY,3000:SEQ,3500:SCL',
+           '--keys', '1500:PLAY,3000:SEQ,3500:SCL',
            '--snap', '1000,2500,3200,4000', '--wav', 'audio.wav']
 with (run/'boot.log').open('w') as log:
     subprocess.run(command, cwd=run, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=a.timeout)
@@ -32,7 +32,7 @@ with wave.open(str(run/'audio.wav'), 'rb') as w:
     assert w.getnchannels() == 2 and w.getsampwidth() == 2, 'unexpected audio format'
     rate = w.getframerate()
     samples = array.array('h', w.readframes(w.getnframes()))
-    # Sound must occur after casting and starting, not just at boot.
+    # Sound must occur after PLAY; one line is already placed by the actual application.
     active = samples[2*rate*2:2*rate*3]
     assert len(active) >= 2*rate//2, 'short audio run'
     rms = (sum(v*v for v in active)/len(active))**0.5
@@ -41,7 +41,7 @@ images = [Image.open(run/f'work/lcd_{ms}.bmp').convert('RGB') for ms in (1000,25
 assert all(im.size == (240,240) for im in images)
 assert all(len(im.getcolors(1 << 24)) > 2 for im in images), 'blank screen'
 assert images[1].tobytes() != images[2].tobytes(), 'SEQ did not change the display'
-assert images[2].tobytes() != images[3].tobytes(), 'stats control did not change the display'
+assert images[2].tobytes() != images[3].tobytes(), 'scale control did not change the display'
 result = dict(metadata, native_audio_rms=rms, evidence=str(run))
 (run/'result.json').write_text(json.dumps(result, indent=2)+'\n')
 print(json.dumps(result, indent=2))

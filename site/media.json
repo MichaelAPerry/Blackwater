@@ -1,0 +1,14 @@
+{
+  "firmware_source_commit": "55bb336d73455cf542b041c5e489b59b1127e847",
+  "capture": "fm1-base host application: native C display and audio; not physical-device footage",
+  "refresh": "PATH=\"$PWD/build/venv/bin:$PATH\" ./build.sh --host && build/venv/bin/python tools/capture_site_media.py",
+  "recording": "flow/keyboard-current/scenario.txt (ordinary controls and chromatic keyboard)",
+  "screens": {
+    "river.png": "flow/keyboard-current/frame-0550.png",
+    "growth.png": "flow/encounter-current/frame-0250.png",
+    "night.png": "nature-night.png",
+    "strike.png": "vector-portrait.png",
+    "free-play.png": "free-play.png",
+    "fish-guide.png": "fish-guide.png"
+  }
+}
