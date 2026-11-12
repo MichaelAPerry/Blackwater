@@ -2,42 +2,35 @@
 
 # BLACKWATER
 
-**Generative fish music for the M-VAVE FM-1.** Four North American fish, four six-operator FM voices, one river.
-Cast a line and that fish's part joins the music; catch it and its theme develops. The bigger the fish, the further
-the music moves. Rare fish start a new section, and a personal best changes the key.
+**An ambient musical river for the M-VAVE FM-1.** Settle into deep, slowly evolving sound. Reflections grow
+strange as the music opens; an approaching fish gathers the river into a sharp FISH ON moment, followed by a
+fight, a reveal, and a gradual return to still water.
 
-**Play it in your browser:** <https://michaelaperry.github.io/Blackwater/>. That page runs the actual firmware
-package in [fm1-emu](https://github.com/joakimeriksson/fm1-emu), an emulator of the FM-1's chip, at its own 240 MHz.
-**Install it on your FM-1** from the same page: fm1-base's web installer, in Chrome or Edge over USB
-(<https://michaelaperry.github.io/Blackwater/install/>), with backup and restore of your sessions beside it.
+This checkout is the first river-experience review build. Three sound worlds — DUSK, UNDERTOW, FIREFLIES — use
+the actual firmware's six-operator FM voices, effects and filtered stereo texture. Four musical layers are
+independent of fish species. One line supports all eight existing species, active fishing or unattended listening.
+There is no casting minigame in this build.
 
-| Slot | Fish (rare cousin) | Plays |
-| --- | --- | --- |
-| 1 | Bluegill (Crappie) | the lead |
-| 2 | Largemouth Bass (Peacock Bass) | the bass line |
-| 3 | Brown Trout (Brook Trout) | triplet arpeggios |
-| 4 | Channel Catfish (Flathead Catfish) | the drone underneath |
+The deployed site, if available at <https://michaelaperry.github.io/Blackwater/>, remains the previous published
+version until a separately authorized deployment. This local review build has not been published.
 
-- **Music:** key, eight scales, chord progressions and swing for all four fish; themes of 4 to 32 steps that
-  catches develop according to the species and the bait; release a catch to undo it, keep a home theme, record
-  from the keys.
-- **Fishing:** depth, bait and weather (day, dusk, night, storm); species-true sizes and weights, with trophies;
-  automatic catches, or a timed bite, a hook set and a reeling fight with line tension; a catch log covering all
-  eight species, in cm/kg or in/lb.
-- **Sound:** sixteen designed patches (four per fish) plus your own; per-fish drive, LFO, and sends to chorus, a
-  tempo-synced echo and reverb; eight voices.
-- **Play:** the white keys play the chosen fish in the scale; the black keys are held FM macros (bright, dark,
-  growl, metal, dive, rise, stutter, half speed, cut, octave, throw); an arpeggiator with latch; MIDI out on
-  channels 1 to 4 and clock in and out.
-- **Keep:** four save slots, autosave, USB backup and restore.
-- **FISH ON!:** when a rare fish takes the line.
+- PLAY enters the river; REC places/lifts the line or answers a bite.
+- PRESET while stopped explicitly loads a sound world; K1–K4 mix current, bed, light and distance.
+- SEQ opens bait, depth, waiting time, and FISH/LISTEN settings. SELECT/K1 reel on the river/line pages.
+- Existing FM editing, live keys, effects, MIDI, saved patches, catch log, and USB backup remain available.
+- v0.3 session/patch/log restore is tested against an actual old-format backup.
+
+Review captures: `python3 tools/render_river_review.py --video` after building the host simulator. This writes
+three WAV studies and a 110-second video from the actual host application to `build/river-review`. Its thirty-second
+wait is explicitly chosen for demonstration; approach, fight, reveal and recovery run at their normal pace.
 
 Full controls: **[the manual](docs/MANUAL.md)**.
 
 ## Status
 
-A development build. It runs in fm1-emu (natively, as WebAssembly, and in Chromium) and its tests pass; it has
-**not yet been tested on a physical FM-1**. Package identity `FM-1_77xx`.
+A development review build. Host simulator and engine tests exercise the redesigned river. The previous build's
+native/Wasm/Chromium package evidence is historical; the new device package and browser still need verification
+once cloud toolchain/SDK download access is available. **Not tested on a physical FM-1.** Package identity `FM-1_77xx`.
 
 ## Build
 

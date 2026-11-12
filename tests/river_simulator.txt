@@ -1,0 +1,23 @@
+# Actual panel input: approach, strike grace, reeling, and a fight continuing while editing.
+wait 600
+tap SEQ
+turn K1 -100
+turn K2 -300
+tap PLAY
+wait 12500
+expect bite 1
+tap REC
+expect fight 1
+expect river_phase 3
+shot strike.png
+wait 1700
+expect river_phase 4
+shot fight.png
+turn SELECT 1
+expect page 1
+tap EDIT
+expect page 5
+wait 90000
+expect fight 0
+tap PLAY
+expect playing 0

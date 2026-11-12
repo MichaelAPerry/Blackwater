@@ -1,5 +1,25 @@
 # BLACKWATER project record
 
+## River redesign approved 2026-11-12
+
+The user approved the salvage/redesign plan and requested deeper, psychedelic art: a minimal river grows with
+the sound, comes together in sharp clarity when the fish strikes, then dissolves back to the river. Ambient music
+and tense fishing encounters replace the fixed four-fish band as the primary experience. Casting remains open;
+the first implementation uses direct line placement. Retain the real firmware, platform and emulator.
+
+Implemented for review: three sound worlds; shared elapsed-time encounter phases; one active line with weighted
+selection across all eight species; slow FM gestures and filtered noise; a musical/visual growth envelope;
+strike ducking and rare-only speech; clear fight/reveal screens; a thirty-second return before the next wait.
+Existing v0.3 binary save layouts are unchanged, including restoration of saved user patches and catch records.
+Spare preference bytes hold world and harmonic memory. The old motif/patch editor remains available; motifs
+unfold slowly instead of as the old fish-specific rhythmic parts. The new composition and sound await the user's
+listening/play judgment. No deployment is authorized by this implementation request.
+
+Validation and review commands: `docs/RIVER_REVIEW.md`. Prior sections below record the earlier product and
+historical build evidence; they do not certify the redesigned package. In this cloud instance the device toolchain
+and SDK download domains still return proxy 403, and Emscripten is absent. Host validation is separate from actual
+package/native/Wasm/browser/hardware validation.
+
 ## Approved requirements and user decisions
 
 - The user is product owner, creative director and final decision-maker. Research
@@ -18,7 +38,7 @@
 - User explicitly chose BOTH fishing modes: automatic catches and variable wait
   followed by a timed player action.
 - Jeremy Wade "fish on" clip: the user will supply it (under 12 seconds, possibly 1 s) and takes responsibility
-  for its use; it plays for **rare fish only**. No clip is in the repository yet.
+  for its use; it plays for **rare fish only**. The supplied clip is now in the repository (older note corrected 2026-11-12).
 - 2026-11-04, the user approved **the whole expanded feature set** in `docs/history/FEATURE_PROPOSAL.md` (A1–A6, B1–B7,
   C1–C6, D1–D4, E), plus **effects**, an audit of the keys with FM manipulation on keys left blank, and **rare fish
   in each slot**: Crappie (bluegill slot), Peacock Bass (bass), Brook Trout (brown trout), Flathead Catfish

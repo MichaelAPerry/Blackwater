@@ -5,6 +5,19 @@ Use the existing checkout. Do not create another emulator or a worktree for norm
 does for a player: [MANUAL.md](MANUAL.md). The device build and the emulator/browser evidence:
 [PACKAGE_EMULATION.md](PACKAGE_EMULATION.md).
 
+## River review build (2026-11-12)
+
+`bw_river.c` (included by the engine) coordinates elapsed-time phases and musical gestures; `bw_river_ui.c`
+(included by the app) renders the river/refraction/contours and encounter screens through fm1-base's band canvas.
+`bw_engine.h` adds runtime state only. The stored song/track/patch/log layouts and version remain unchanged.
+World and memory use the two previously reserved preference bytes. Existing sessions keep their patches and
+motifs; loading a new sound world is explicit. The real v0.3 backup fixture tests restore, patch-library load,
+save, and reboot. `river_test.c` covers clocks, grace/recovery, audio, no overlapping lines, and ten minutes of
+listening. `river_simulator.txt` exercises real input and progression while editing.
+
+See [River review](RIVER_REVIEW.md) for artifacts, exact limits and current controls. The earlier source-map and
+sound-design notes below describe the prior version where they refer to fixed fish roles or rapid sequencer steps.
+
 ## Setup and tests
 
 Requires a C99 compiler, Git, Python 3 with venv/pip. From the repository root:

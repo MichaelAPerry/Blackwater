@@ -18,6 +18,8 @@ static float bw_exp(float x)
 }
 static float pan_l[4], pan_r[4], vol[4], srev[4], sdly[4], scho[4], drv[4]; /* per track, every 32 frames */
 static int bw_gains_set;
+static void bw_river_finish(bw_engine *e);
+static void bw_river_control(bw_engine *e);
 static void bw_algorithm_impl(bw_patch *t, unsigned algorithm);
 static void bw_voice_prepare(bw_engine *e, bw_voice *v);
 void bw_algorithm(bw_patch *p, unsigned algorithm)
@@ -736,6 +738,8 @@ void bw_macro(bw_engine *e, unsigned k, unsigned macro, int down)
         e->macros[k] |= 1u << macro;
     else
         e->macros[k] &= ~(1u << macro);
+    if (e->river.enabled && down && macro == BW_M_STUTTER)
+        e->river.note_at[k] = e->river.ms;
 }
 
 /* ------------------------------------------------------------------ fishing */
@@ -768,10 +772,15 @@ static void bw_schedule(bw_engine *e, unsigned k)
 {
     bw_track *t = &e->track[k];
     unsigned seconds = t->wait_min + bw_random(e) % (1u + t->wait_max - t->wait_min);
-    float s = (float)seconds * bw_wait_factor(e, k);
+    float s = (float)seconds * (e->river.enabled ? 1.0f : bw_wait_factor(e, k));
     if (s > 900.0f)
         s = 900.0f;
     e->deadline[k] = e->clock + (uint32_t)(s * (float)BW_RATE);
+    if (e->river.enabled)
+    {
+        e->river.wait_at = e->river.ms;
+        e->river.wait_ms = (uint32_t)(s * 1000.0f);
+    }
 }
 /* which fish takes the bait, and how big it is */
 static void bw_encounter(bw_engine *e, unsigned k)
@@ -801,6 +810,16 @@ void bw_cast(bw_engine *e, unsigned k)
 {
     if (k >= 4)
         return;
+    if (e->river.enabled)
+    {
+        if (e->river.phase >= BW_RIVER_STRIKE)
+            return; /* do not erase the encounter's recovery by replacing the line */
+        for (unsigned i = 0; i < 4; i++)
+            e->hooked_state[i] = BW_FISH_IDLE;
+        e->river.line = (uint8_t)k;
+        e->river.phase = BW_RIVER_QUIET;
+        e->river.phase_at = e->river.ms;
+    }
     e->fish[k] = (uint8_t)k;
     e->fish_rare[k] = 0;
     e->fish_mm[k] = 0;
@@ -814,8 +833,16 @@ void bw_retrieve(bw_engine *e, unsigned k)
     if (k < 4)
     {
         e->hooked_state[k] = BW_FISH_IDLE;
-        bw_seq_off(e, k);
-        e->off_at[k] = 0;
+        if (!e->river.enabled)
+        {
+            bw_seq_off(e, k);
+            e->off_at[k] = 0;
+        }
+        if (e->river.enabled && e->river.phase < BW_RIVER_STRIKE)
+        {
+            e->river.phase = BW_RIVER_QUIET;
+            e->river.growth = 0;
+        }
     }
 }
 int bw_fish_state(const bw_engine *e, unsigned k)
@@ -867,14 +894,20 @@ static void bw_catch(bw_engine *e, unsigned k)
         bw_move(e, k, bw_choose_move(e, k));
     e->event.moves = (uint8_t)moves;
     /* a personal best (not the first fish of its kind): the river changes key, up a fourth */
-    if (best && l->count > 1 && e->song.pb_event)
+    if (best && l->count > 1 && e->song.pb_event && !e->river.enabled)
     {
         e->song.key = (uint8_t)((e->song.key + 5) % 12);
         e->event.key_change = 1;
     }
     e->event.best = (uint8_t)(best && l->count > 1);
     e->hooked_state[k] = BW_FISH_WAIT;
-    bw_schedule(e, k);
+    if (e->river.enabled)
+    {
+        e->river.memory = (uint8_t)(sp + 1u);
+        bw_river_finish(e);
+    }
+    else
+        bw_schedule(e, k);
 }
 int bw_hookset(bw_engine *e, unsigned k)
 {
@@ -891,7 +924,10 @@ int bw_hookset(bw_engine *e, unsigned k)
         bw_event_set(e, k, BW_FIGHT_THROWN);
         e->log.missed++;
         e->hooked_state[k] = BW_FISH_WAIT;
-        bw_schedule(e, k);
+        if (e->river.enabled)
+            bw_river_finish(e);
+        else
+            bw_schedule(e, k);
         return 0;
     }
     e->hooked_state[k] = BW_FISH_FIGHT;
@@ -900,6 +936,12 @@ int bw_hookset(bw_engine *e, unsigned k)
     e->fight_tension[k] = 30.0f;
     e->fight_run[k] = 0;
     e->fight_slack_ms[k] = 0;
+    if (e->river.enabled)
+    {
+        e->river.phase = BW_RIVER_STRIKE;
+        e->river.phase_at = e->river.ms;
+        e->river.reel = 0;
+    }
     if (e->fish_rare[k])
         bw_on_rare(k);
     return 1;
@@ -913,12 +955,15 @@ int bw_fight(bw_engine *e, unsigned k, int reel, unsigned ms)
     float lo = bw_fish_data[e->fish[k]].min_mm, hi = bw_fish_data[e->fish[k]].max_mm;
     float frac = fm_clampf(((float)e->fish_mm[k] - lo) / (hi - lo), 0.0f, 1.2f);
     float strength = 0.6f + 1.4f * frac + (e->fish_rare[k] ? 0.5f : 0.0f);
+    static const float river_strength[BW_SPECIES] = {0.75f, 1.12f, 0.95f, 1.18f, 0.9f, 1.2f, 1.0f, 1.28f};
+    if (e->river.enabled)
+        strength *= river_strength[e->fish[k] % BW_SPECIES];
     float *d = &e->fight_dist[k], *tn = &e->fight_tension[k], *run = &e->fight_run[k];
     /* the fish's runs: they start at random, last about a second */
     if (*run > 0.0f)
         *run -= dt;
     else if (bw_unit(e) < (0.2f + 0.2f * strength) * dt)
-        *run = 0.5f + bw_unit(e);
+        *run = (e->river.enabled ? 1.0f + 0.22f * (float)(e->fish[k] % 4u) : 0.5f) + bw_unit(e);
     float pull = strength * (0.4f + (*run > 0.0f ? 1.6f : 0.0f));
     if (reel > 0) /* each click of the reel pulls harder on a stronger fish */
     {
@@ -958,7 +1003,10 @@ int bw_fight(bw_engine *e, unsigned k, int reel, unsigned ms)
         else
             e->log.thrown++;
         e->hooked_state[k] = BW_FISH_WAIT;
-        bw_schedule(e, k);
+        if (e->river.enabled)
+            bw_river_finish(e);
+        else
+            bw_schedule(e, k);
     }
     return result;
 }
@@ -1124,6 +1172,8 @@ static void bw_tick(bw_engine *e)
         return;
     if (e->ticks % 4 == 0 && e->song.sync == 0 && e->midi_out && bw_midi_room())
         bw_midi_send(0x0F | 0xF8u << 8);
+    if (e->river.enabled)
+        return; /* the river and encounters have elapsed-time clocks, independent of tempo/MIDI */
     for (k = 0; k < 4; k++)
     {
         /* STUTTER: the note again every thirty-second */
@@ -1206,7 +1256,9 @@ static void bw_modulation(bw_engine *e, unsigned frames)
         if (e->lfo_phase[k] >= 1.0f)
         {
             e->lfo_phase[k] -= fm_floorf(e->lfo_phase[k]);
-            e->lfo_hold[k] = bw_unit(e) * 2.0f - 1.0f;
+            e->lfo_hold[k] = e->river.enabled
+                ? (float)(bw_rand(&e->river.modulation_rng) >> 8) / 8388608.0f - 1.0f
+                : bw_unit(e) * 2.0f - 1.0f;
         }
         float ph = e->lfo_phase[k];
         switch (t->lfo_shape)
@@ -1261,6 +1313,13 @@ static void bw_modulation(bw_engine *e, unsigned frames)
         e->pitch_scale[k] = bw_exp2((pitch + e->bend[k]) * (1.0f / 12.0f));
         e->amp_scale[k] = amp;
         e->pan_mod[k] = pan;
+        if (e->river.enabled)
+        {
+            float bloom = e->river.bloom;
+            e->mod_scale[k] *= 0.55f + bloom * 0.65f + e->river.pressure * 0.45f;
+            e->amp_scale[k] *= (k == 0 ? 0.52f : 0.16f + bloom * 0.48f);
+            e->pan_mod[k] = pan + bw_sin((float)e->river.ms / (37000.0f + k * 13000.0f)) * 0.12f;
+        }
         e->fb_add[k] = (m >> BW_M_GROWL & 1) ? 0.6f : 0.0f;
         e->metal[k] = (m >> BW_M_METAL & 1) ? 1.414f : 1.0f;
         e->send_boost[k] = (m >> BW_M_THROW & 1) ? 1.0f : 0.0f;
@@ -1348,6 +1407,7 @@ static float bw_voice_sample(bw_engine *e, bw_voice *v)
     return mix;
 }
 #define BW_BLOCK 256u
+#include "bw_river.c"
 static float bw_l[BW_BLOCK], bw_r[BW_BLOCK], bw_srev[BW_BLOCK], bw_sdly[BW_BLOCK], bw_scho[BW_BLOCK];
 static float bw_drive(float x, float amount)
 {
@@ -1406,6 +1466,11 @@ void bw_render(bw_engine *e, int32_t *lr, unsigned n, unsigned master)
             if (e->playing)
             {
                 e->clock++;
+                if (e->river.enabled && ++e->river.samples == BW_RATE / 100u)
+                {
+                    e->river.samples = 0;
+                    bw_river_control(e);
+                }
                 for (k = 0; k < 4; k++)
                     if (e->off_at[k] && (int32_t)(e->clock - e->off_at[k]) >= 0)
                     {
@@ -1437,8 +1502,20 @@ void bw_render(bw_engine *e, int32_t *lr, unsigned n, unsigned master)
         bw_fx_process(&e->song, bw_l, bw_r, bw_srev, bw_sdly, bw_scho, m);
         for (f = 0; f < m; f++)
         {
+            if (e->river.enabled)
+                bw_river_texture(e, &bw_l[f], &bw_r[f]);
             e->master_gain += (gain - e->master_gain) * 0.004f;
             float a = bw_l[f] * e->master_gain, b = bw_r[f] * e->master_gain;
+            if (e->river.enabled)
+            {
+                /* Match the quiet worlds at the source, leaving soft headroom for stacked tails/live keys.
+                 * The speech is mixed afterward, over the ducked river. No post-render normalization. */
+                static const float world_gain[BW_WORLDS] = {8.0f, 4.0f, 14.0f};
+                float g = world_gain[e->river.world] / 8388607.0f;
+                float u = fm_clampf(a * g, -1.5f, 1.5f), v = fm_clampf(b * g, -1.5f, 1.5f);
+                a = (u - u * u * u * (4.0f / 27.0f)) * (8388607.0f * 0.9f);
+                b = (v - v * v * v * (4.0f / 27.0f)) * (8388607.0f * 0.9f);
+            }
             lr[(base + f) * 2] = (int32_t)fm_clampf(a, -8388607.0f, 8388607.0f);
             lr[(base + f) * 2 + 1] = (int32_t)fm_clampf(b, -8388607.0f, 8388607.0f);
         }

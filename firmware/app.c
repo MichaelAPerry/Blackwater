@@ -56,6 +56,7 @@ enum
 };
 static const char *const bw_pages[BW_NPAGES] = {"RIVER", "FISHING", "THEME", "CATCH LOG", "SCALE", "FM EDIT",
                                                 "ENVELOPE", "LFO", "EFFECTS", "ARP", "GLOBAL", "HELP"};
+static const char *const bw_layers[4] = {"CURRENT", "BED", "LIGHT", "DISTANCE"};
 static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 2, 1, 4, 1, 1, 4, 1, 3, 2};
 static struct
 {
@@ -251,7 +252,19 @@ static void bw_load_all(void)
     }
     if (plat_store_load(OBJ_LOG, &l, sizeof l) == (int)sizeof l && l.magic == BW_MAGIC && l.version == BW_VERSION)
         bw.log = l.log;
-    bw_load_slot(bw_pref.slot);
+    bw.river.world = bw_pref.pad[0] < BW_WORLDS ? bw_pref.pad[0] : 0;
+    bw.river.memory = bw_pref.pad[1] <= BW_SPECIES ? bw_pref.pad[1] : 0;
+    if (!bw_load_slot(bw_pref.slot))
+    {
+        bw_river_world(&bw, bw.river.world);
+        bw.song.progression = 0;
+        bw.song.pb_event = 0;
+        for (unsigned k = 0; k < 4; k++)
+        {
+            bw.track[k].wait_min = 100;
+            bw.track[k].wait_max = 240;
+        }
+    }
     bw.midi_out = bw_pref.midi_out;
 }
 static int bw_save_all(unsigned slot)
@@ -263,6 +276,7 @@ static int bw_save_all(unsigned slot)
     s.magic = BW_MAGIC;
     s.version = BW_VERSION;
     s.seed = bw.rng ? bw.rng : 1u;
+    bw_pref.pad[1] = bw.river.memory;
     s.song = bw.song;
     for (unsigned k = 0; k < 4; k++)
         s.track[k] = bw.track[k];
@@ -304,6 +318,7 @@ void app_backup_restored(void)
 {
     uint32_t lock = plat_lock();
     bw_init(&bw);
+    bw_river_enable(&bw);
     plat_unlock(lock);
     bw_load_all();
     bw_ui.dirty = 0;
@@ -314,6 +329,7 @@ void app_backup_restored(void)
 void app_init(void)
 {
     bw_init(&bw);
+    bw_river_enable(&bw);
     bw_load_all();
     /* simulated reboots call app_init again in the same process: all UI state starts over */
     memset(&bw_ui, 0, sizeof bw_ui);
@@ -325,8 +341,7 @@ void app_init(void)
     bw_ui.route_source = 1;
     bw_ui.draw = 1;
     bw_ui.event_seq = bw.event.seq;
-    for (unsigned k = 0; k < 4; k++) /* every line in the water: PLAY and the river plays */
-        bw_cast(&bw, k);
+    bw_cast(&bw, 0); /* one line; all four musical layers exist independently */
 }
 void app_panic(void)
 {
@@ -394,7 +409,7 @@ static void bw_knob(unsigned knob, int d)
         }
         if (knob == 1)
             t->wait_max = (uint16_t)bw_step_val(t->wait_max, d * 5, t->wait_min, 600);
-        if (knob == 2)
+        if (knob == 2 && (!bw.river.enabled || bw.river.phase <= BW_RIVER_GROW))
             t->manual = (uint8_t)bw_step_val(t->manual, d, 0, 1);
         if (knob == 3)
             t->bait = (uint8_t)bw_step_val(t->bait, d, 0, BW_NBAIT - 1);
@@ -653,7 +668,8 @@ static void bw_input(void)
     if (pressed || keys != bw_ui.keys || turn[0] || turn[1] || turn[2] || turn[3] || turn[4] || turn[5] || turn[6])
         bw_ui.last_input = now;
     unsigned k = bw_ui.track;
-    int fighting = bw_fish_state(&bw, k) == BW_FISH_FIGHT;
+    int fighting = bw_fish_state(&bw, bw.river.enabled ? bw.river.line : k) == BW_FISH_FIGHT;
+    int reel_page = bw_ui.page == BW_RIVER || bw_ui.page == BW_FISHING;
     uint32_t lock = plat_lock();
     if ((e = turn[EN_ALGO]) && !fighting)
     {
@@ -661,12 +677,16 @@ static void bw_input(void)
         bw_ui.track = (uint8_t)clamp(bw_ui.track + e, 0, 3);
         bw.live_track = bw_ui.track;
     }
-    if (fighting)
+    if (fighting && reel_page)
     {
         /* the fight: SELECT or K1 reels in */
         unsigned dt = now - bw_ui.fight_ms;
         bw_ui.fight_ms = now;
-        int r = bw_fight(&bw, k, turn[EN_SELECT] + turn[EN_K1], dt);
+        int r = BW_FIGHT_ON;
+        if (bw.river.enabled)
+            bw_river_reel(&bw, turn[EN_SELECT] + turn[EN_K1]);
+        else
+            r = bw_fight(&bw, k, turn[EN_SELECT] + turn[EN_K1], dt);
         if (turn[EN_SELECT] + turn[EN_K1] > 0)
             bw_ui.reel_turns += (uint32_t)(turn[EN_SELECT] + turn[EN_K1]);
         if (r != BW_FIGHT_ON)
@@ -687,11 +707,19 @@ static void bw_input(void)
             bw.track[k].depth = (uint8_t)clamp(bw.track[k].depth + e, 0, BW_NDEPTH - 1);
             bw_ui.dirty = 1;
         }
-        else if (bw_ui.page == BW_RIVER) /* the weather: the river changes before your eyes */
+        else if (bw_ui.page == BW_RIVER)
         {
-            bw.song.weather = (uint8_t)((bw.song.weather + BW_NWEATHER + (e > 0 ? 1 : -1)) % BW_NWEATHER);
-            app_say("WEATHER", bw_weather_names[bw.song.weather]);
-            bw_ui.dirty = 1;
+            if (bw.playing)
+                app_say("STOP TO CHANGE WORLD", "PRESET: DUSK / UNDERTOW / FIREFLIES");
+            else
+            {
+                unsigned world = (bw.river.world + BW_WORLDS + (e > 0 ? 1 : -1)) % BW_WORLDS;
+                bw_all_notes_off(&bw);
+                bw_river_world(&bw, world);
+                bw_pref.pad[0] = (uint8_t)world;
+                app_say("WORLD", bw_world_names[world]);
+                bw_ui.dirty = 1;
+            }
         }
         else if (bw_ui.page == BW_SCALE)
         {
@@ -758,7 +786,10 @@ static void bw_input(void)
         int st = bw_fish_state(&bw, k);
         if (fighting)
         {
-            bw_fight(&bw, k, 4, now - bw_ui.fight_ms); /* REC reels too: four turns a press */
+            if (bw.river.enabled)
+                bw_river_reel(&bw, 2);
+            else
+                bw_fight(&bw, k, 4, now - bw_ui.fight_ms);
             bw_ui.fight_ms = now;
             bw_ui.reel_turns += 4;
         }
@@ -1059,7 +1090,7 @@ static void bw_header(const char *title, uint16_t c, const char *right)
     }
     else
     {
-        bw_cat(t, sizeof t, bw_species_names[bw_ui.track]);
+        bw_cat(t, sizeof t, bw.river.enabled ? bw_layers[bw_ui.track] : bw_species_names[bw_ui.track]);
         bw_cat(t, sizeof t, "  ");
         char n[8];
         bw_num(n, bw.song.tempo);
@@ -1391,6 +1422,8 @@ static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned
             L(xs[i] + 22, ys[i] + 3, 232, ys[i] + 3, C_BAR); /* to the output */
     }
 }
+#include "bw_river_ui.c"
+
 static void bw_draw_page(uint32_t ms)
 {
     char t[24];
@@ -1832,10 +1865,10 @@ static void bw_draw_page(uint32_t ms)
     {
         static const char *const help[2][8] = {
             {"SELECT TURNS THE PAGES (THE ICONS)", "PRESET: WHAT THE HEADER SAYS (TOP RIGHT)", "K1-K4: SEE THE BAR AT THE BOTTOM",
-             "ALGORITHM CHOOSES THE FISH", "PLAY STARTS THE RIVER", "REC: A BITE, OR A LINE IN / OUT",
+             "ALGORITHM CHOOSES THE LAYER", "PLAY STARTS THE RIVER", "REC: A BITE, OR A LINE IN / OUT",
              "SELECT, K1 OR REC REELS A FISH IN", "SAVE KEEPS THIS SLOT"},
             {"HOME: RIVER, AGAIN: CATCH LOG", "SEQ: FISHING, AGAIN: THEME  EDIT AGAIN: ITS PAGES", "SCL: SCALE  EDIT: FM  ENV: ENVELOPE",
-             "LFO  FX: EFFECTS  ARP  GLO: GLOBAL", "WHITE KEYS PLAY THE CHOSEN FISH", "BLACK KEYS (HOLD) BEND ITS FM",
+             "LFO  FX: EFFECTS  ARP  GLO: GLOBAL", "WHITE KEYS PLAY THE CHOSEN LAYER", "BLACK KEYS (HOLD) BEND ITS FM",
              "OCT- / OCT+ MOVE THE KEYBOARD", "MASTER: THE VOLUME"}};
         for (unsigned i = 0; i < 8; i++)
             T(6, 52 + (int32_t)i * 20, &FONT_XS, help[sub][i], i % 2 ? C_TXT : C_MUTE);
@@ -1864,7 +1897,7 @@ static void bw_draw(void)
     {
         int b = bw_fish_state(&bw, i) == BW_FISH_BITE;
         if (b && !was_biting[i])
-            app_say("BITE!", bw_species_names[i]); /* REC answers it, whichever fish */
+            app_say("BITE!", bw.river.enabled ? "REC SETS THE HOOK" : bw_species_names[i]);
         was_biting[i] = (uint8_t)b;
         any_bite |= b;
     }
@@ -1873,7 +1906,7 @@ static void bw_draw(void)
         bw_ui.fish_on_seen = bw_fish_on_seq;
         bw_ui.fish_on_until = ms + BW_STRIKE_MS;
     }
-    int fish_on = (int32_t)(bw_ui.fish_on_until - ms) > 0;
+    int fish_on = !bw.river.enabled && (int32_t)(bw_ui.fish_on_until - ms) > 0;
     uint32_t strike_t = BW_STRIKE_MS - (bw_ui.fish_on_until - ms);
     /* the last 350 ms: a wave rises from the bottom; the page beneath it, the strike above */
     int32_t wave = fish_on && strike_t > BW_STRIKE_MS - 350u
@@ -1887,7 +1920,9 @@ static void bw_draw(void)
     {
         bw_oy = (int32_t)band * 48;
         cv_begin(240, 48, C_BG);
-        if (band == 0)
+        if (bw.river.enabled && (bw_ui.page == BW_RIVER || bw_ui.page == BW_FISHING))
+            bw_draw_river_scene(ms, bw_ui.page == BW_FISHING);
+        else if (band == 0)
             bw_header(bw_pages[bw_ui.page], bw_ui.page == BW_FX || bw_ui.page == BW_SCALE || bw_ui.page == BW_GLOBAL
                                                 ? C_YEL
                                                 : bw_color(bw_ui.track),
@@ -1971,11 +2006,22 @@ int app_expect(const char *what, int *got)
         notes += t->cur.s[i].gate == BW_GATE_NOTE;
     for (unsigned i = 0; i < BW_VOICES; i++)
         active += bw.voice[i].active;
+    uint32_t catches = 0, rares = 0;
+    for (unsigned i = 0; i < BW_SPECIES; i++)
+    {
+        catches += bw.log.s[i].count;
+        if (i >= 4) rares += bw.log.s[i].count;
+    }
     const struct
     {
         const char *name;
         int value;
     } checks[] = {{"track", (int)k},
+                  {"river_phase", bw.river.phase},
+                  {"river_bloom", (int)(bw.river.bloom * 100)},
+                  {"world", bw.river.world},
+                  {"river_line", bw.river.line},
+                  {"river_memory", bw.river.memory},
                   {"page", bw_ui.page},
                   {"sub", bw_ui.sub[bw_ui.page]},
                   {"playing", bw.playing},
@@ -1983,8 +2029,8 @@ int app_expect(const char *what, int *got)
                   {"hooked", bw_fish_state(&bw, k) != BW_FISH_IDLE},
                   {"bite", bw_fish_state(&bw, k) == BW_FISH_BITE},
                   {"fight", bw_fish_state(&bw, k) == BW_FISH_FIGHT},
-                  {"catches", (int)(bw.log.s[k].count + bw.log.s[k + 4].count)},
-                  {"rare", (int)bw.log.s[k + 4].count},
+                  {"catches", (int)catches},
+                  {"rare", (int)rares},
                   {"best_mm", (int)bw.log.s[k].best_mm},
                   {"last_mm", (int)bw.log.s[k].last_mm},
                   {"missed", (int)bw.log.missed},

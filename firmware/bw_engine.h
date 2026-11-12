@@ -29,6 +29,19 @@ enum { BW_M_BRIGHT, BW_M_DARK, BW_M_GROWL, BW_M_METAL, BW_M_DIVE, BW_M_RISE, BW_
 enum { BW_FISH_IDLE, BW_FISH_WAIT, BW_FISH_BITE, BW_FISH_FIGHT };
 /* fight results */
 enum { BW_FIGHT_ON, BW_FIGHT_LANDED, BW_FIGHT_SNAPPED, BW_FIGHT_THROWN };
+enum { BW_RIVER_QUIET, BW_RIVER_GROW, BW_RIVER_APPROACH, BW_RIVER_STRIKE,
+       BW_RIVER_FIGHT, BW_RIVER_REVEAL, BW_RIVER_RETURN };
+enum { BW_WORLD_DUSK, BW_WORLD_UNDERTOW, BW_WORLD_FIREFLIES, BW_WORLDS };
+
+/* Runtime only: the river does not alter the stored song/patch/session layouts. */
+typedef struct
+{
+    uint32_t ms, phase_at, wait_at, wait_ms, note_at[4], noise, modulation_rng;
+    uint16_t samples;
+    uint8_t enabled, world, phase, line, memory;
+    int16_t reel;
+    float growth, bloom, pressure, duck, texture_l, texture_r, body_l, body_r;
+} bw_river_state;
 
 typedef struct
 {
@@ -132,6 +145,7 @@ typedef struct
     uint8_t midi_out, midi_notes[BW_TRACKS];
     bw_event event;
     float master_gain;
+    bw_river_state river;
 } bw_engine;
 
 void bw_init(bw_engine *e);
@@ -166,6 +180,10 @@ void bw_make_home(bw_engine *e, unsigned k);
 unsigned bw_weather(const bw_engine *e);
 uint32_t bw_weight_g(unsigned species, uint32_t mm);
 uint32_t bw_species_max_mm(unsigned species); /* the top of its usual range */
+void bw_river_enable(bw_engine *e);
+void bw_river_world(bw_engine *e, unsigned world); /* explicit load of a sound world */
+void bw_river_reel(bw_engine *e, int clicks);
+extern const char *const bw_world_names[BW_WORLDS];
 /* names and data for the screen */
 extern const char *const bw_species_names[BW_SPECIES];
 extern const char *const bw_scale_names[BW_SCALES];

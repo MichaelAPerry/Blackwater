@@ -7,6 +7,9 @@ CFLAGS="-std=c99 -O2 -g -Wall -Wextra -Werror -Wno-unused-function -ffp-contract
 ${CC:-cc} $CFLAGS -Ifirmware -Iplatform/fm1-base/include firmware/bw_engine.c tests/engine_test.c -lm \
   -o build/tests/engine_test
 build/tests/engine_test
+${CC:-cc} $CFLAGS -Ifirmware -Iplatform/fm1-base/include firmware/bw_engine.c tests/river_test.c -lm \
+  -o build/tests/river_test
+build/tests/river_test
 # the art importer, on a synthetic sheet (never shipped)
 python3 -I tests/art_test.py
 # the clip player, on a synthetic tone (never shipped), against tools/adpcm.py's decoder
@@ -29,3 +32,6 @@ firmware/build/host/blackwater_host tests/clip_simulator.txt build/tests/clip
 # the app as it ships (no clip unless one is supplied)
 ./build.sh --host
 firmware/build/host/blackwater_host tests/simulator.txt build/tests
+
+firmware/build/host/blackwater_host tests/river_simulator.txt build/tests
+firmware/build/host/blackwater_host tests/session_compatibility.txt build/tests
