@@ -574,6 +574,11 @@ static void bw_voice_on(bw_engine *e, bw_voice *v, unsigned k, unsigned note, un
     v->velocity = (float)(velocity > 127 ? 127 : velocity) / 127.0f;
     v->track = (uint8_t)k;
     v->note = (uint8_t)note;
+    if(e->river.enabled)
+    {
+        e->river.played_note[k]=(uint8_t)note;
+        e->river.note_flash[k]=1;
+    }
     v->age = ++e->age;
     for (i = 0; i < 6; i++)
     {
@@ -1422,6 +1427,7 @@ static float bw_voice_sample(bw_engine *e, bw_voice *v)
 }
 #define BW_BLOCK 256u
 #include "bw_life.c"
+#include "bw_nature.c"
 #include "bw_river.c"
 static float bw_l[BW_BLOCK], bw_r[BW_BLOCK], bw_srev[BW_BLOCK], bw_sdly[BW_BLOCK], bw_scho[BW_BLOCK];
 static float bw_drive(float x, float amount)

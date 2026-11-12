@@ -1,0 +1,34 @@
+# Scene lighting follows the same weather as insects, with smooth changes while playing.
+wait 600
+tap GLO
+turn K3 4
+expect weather 4
+expect daylight 100
+tap HOME
+tap REC
+tap PLAY
+wait 7000
+shot nature-day.png
+tap GLO
+turn K3 -2
+tap HOME
+wait 1000
+expect daylight >50
+expect night_light <50
+shot nature-transition.png
+wait 49000
+expect daylight <1
+expect night_light >98
+shot nature-night.png
+expect splashes 2
+tap PLAY
+tap GLO
+turn K3 1
+expect storm_light 100
+tap HOME
+shot nature-storm.png
+tap SAVE
+wait 300
+reboot
+wait 600
+expect storm_light 100

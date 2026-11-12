@@ -13,6 +13,9 @@ build/tests/river_test
 ${CC:-cc} $CFLAGS -Ifirmware -Iplatform/fm1-base/include firmware/bw_engine.c tests/performance_test.c -lm \
   -o build/tests/performance_test
 build/tests/performance_test
+${CC:-cc} $CFLAGS -Ifirmware -Iplatform/fm1-base/include firmware/bw_engine.c tests/nature_test.c -lm \
+  -o build/tests/nature_test
+build/tests/nature_test
 # the art importer, on a synthetic sheet (never shipped)
 python3 -I tests/art_test.py
 # the clip player, on a synthetic tone (never shipped), against tools/adpcm.py's decoder
@@ -45,4 +48,5 @@ firmware/build/host/blackwater_host tests/fm_controls.txt build/tests
 firmware/build/host/blackwater_host tests/performance_simulator.txt build/tests
 firmware/build/host/blackwater_host tests/keyboard_encounter.txt build/tests
 firmware/build/host/blackwater_host tests/life_simulator.txt build/tests
+firmware/build/host/blackwater_host tests/nature_simulator.txt build/tests
 python3 tests/fish_guide_test.py build/tests

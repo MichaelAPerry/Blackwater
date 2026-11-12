@@ -12,6 +12,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--out', type=Path, default=ROOT / 'build/living-review')
+p.add_argument('--nature', action='store_true', help='also record day/night light, insects and musical growth')
 a = p.parse_args()
 out = a.out.resolve()
 out.mkdir(parents=True, exist_ok=True)
@@ -63,3 +64,21 @@ subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'con
 capture('free', 'wait 600\ntap GLO\nturn PRESET 3\nturn K1 1\nturn K3 3\ntap HOME',
         12, 'expect mode 1\nexpect catches 0\nexpect held 0\nexpect peak_db_min -45')
 print(out / 'living-river.mp4', flush=True)
+
+if a.nature:
+    day = 'wait 600\ntap GLO\nturn K3 4\ntap HOME\ntap REC\ntap PLAY\n'
+    capture('daylight', day + 'wait 8000', 8, 'expect daylight 100')
+    capture('night', night + 'wait 8000', 8, 'expect night_light 100')
+    capture('day-to-night', day + 'wait 5000\ntap GLO\nturn K3 -2\ntap HOME',
+            40, 'expect night_light >98')
+    capture('musical-growth', 'wait 600\ntap SEQ\nturn K1 -14\nturn K2 -42\nturn K3 -1\n'
+            'tap HOME\ntap PLAY\nwait 26000', 22, 'expect river_phase 4')
+    # Only the ordinary mixer is turned down, so the actual procedural soundscape can be heard alone.
+    for name, weather in [('cicadas', 4), ('crickets', 2)]:
+        source = out / f'{name}.txt'
+        source.write_text('wait 600\ntap GLO\n' + f'turn K3 {weather}\n' +
+                          'tap HOME\nturn K1 -50\nturn K2 -50\nturn K3 -50\nturn K4 -50\n'
+                          f'tap REC\ntap PLAY\nwav {name}.wav\nwait 12000\nwavstop\n')
+        with (out / f'{name}.log').open('w') as log:
+            subprocess.run([str(host), str(source), str(out)], cwd=ROOT,
+                           stdout=log, stderr=subprocess.STDOUT, check=True)

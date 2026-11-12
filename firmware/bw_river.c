@@ -9,6 +9,10 @@ void bw_river_enable(bw_engine *e)
     e->river.noise = 0x72697665u;
     e->river.modulation_rng = 0x77617465u;
     bw_life_init(e);
+    unsigned weather=bw_weather(e);
+    e->river.daylight=weather==BW_WEATHER_DAY;
+    e->river.night=weather==BW_WEATHER_NIGHT;
+    e->river.storm=weather==BW_WEATHER_STORM;
     for (unsigned k = 0; k < 4; k++)
         e->river.note_at[k] = e->river.ms + k * 2300u;
 }
@@ -169,16 +173,19 @@ static void bw_river_control(bw_engine *e)
     for(unsigned layer=0;layer<4;layer++)
     {
         energy+=e->meter[layer];
-        float tone=(float)(e->last_note[layer]%12u)/12.0f+e->lfo_value[layer]*0.12f+
+        float tone=(float)(r->played_note[layer]%12u)/12.0f+e->lfo_value[layer]*0.12f+
             e->mod_scale[layer]*0.05f+(float)e->track[layer].patch.op[0].feedback*0.001f;
-        r->color_voice[layer]+=(tone-r->color_voice[layer])*0.004f;
+        r->color_voice[layer]+=(tone-r->color_voice[layer])*0.035f;
+        r->note_flash[layer]*=0.975f;
     }
     r->energy+=(fm_clampf(energy*1.5f,0,1)-r->energy)*0.015f;
+    float motion=fm_clampf(energy*4.0f,0,1);
+    r->reactive+=(motion-r->reactive)*(motion>r->reactive ? 0.12f:0.008f);
     unsigned weather=bw_weather(e);
     float wind=(weather==BW_WEATHER_STORM ? 0.55f:weather==BW_WEATHER_NIGHT ? 0.08f:0.18f)+
         (0.5f+0.5f*bw_sin((float)r->ms/47000.0f))*0.20f;
     r->wind+=(wind-r->wind)*0.003f;
-    r->color_phase+=0.00014f+r->energy*0.00030f+r->wind*0.00008f;
+    r->color_phase+=0.00014f+r->reactive*0.0011f+r->wind*0.00008f;
     if(r->color_phase>=1) r->color_phase-=1;
     if (e->song.progression && r->ms % 48000u == 0)
         e->chord = (uint8_t)((e->chord + 1) % bw_progressions[e->song.progression].n);
@@ -218,6 +225,7 @@ static void bw_river_control(bw_engine *e)
             r->note_at[layer] = r->ms + interval;
         }
     bw_life_tick(e);
+    bw_nature_control(e);
 }
 
 /* Two stereo bands of filtered noise alongside FM. Independent PRNG keeps texture/sample rate from
@@ -234,6 +242,7 @@ static void bw_river_texture(bw_engine *e, float *l, float *right)
     level *= 0.25f + r->bloom + r->pressure * 0.7f;
     /* Sample-rate smoothing avoids a discontinuity when the strike clears the mix. */
     r->duck += ((r->phase == BW_RIVER_STRIKE ? 0.30f : 1.0f) - r->duck) * 0.00008f;
+    bw_nature_sample(e,x,l,right);
     *l = (*l + (r->texture_l - r->body_l) * level) * r->duck;
     *right = (*right + (r->texture_r - r->body_r) * level) * r->duck;
 }

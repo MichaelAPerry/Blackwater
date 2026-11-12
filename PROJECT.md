@@ -1,5 +1,30 @@
 # BLACKWATER project record
 
+## Riverbanks, reactive colour and nature sound, approved 2026-11-12
+
+The user requested more wildlife detail and passing sounds, splashes/wind, more reactive psychedelic colour,
+defined banks/ground/grass, crickets/cicadas and a daylight scene. Added these within the existing line-art
+firmware and host simulator. The established AUTO weather order remains day → dusk → night → storm, three
+minutes per stage; explicit weather is still selected on GLOBAL page 1 / K3.
+
+Stable curved banks, a second water-edge stroke, land contours and wind-bent grass define the river. All sixteen
+water curves end inside the shared shore geometry. More saturated flowing colours now follow actual played
+pitches (including live keys and star motifs), note attacks and measured layer energy with faster attack/slower
+release. Musical bloom still adds the detail; strike/fight/recovery reduce saturation and complexity for clarity.
+
+The light state crossfades the background, sun/clouds, crescent/stars and insects. Stopped weather edits preview
+immediately; changing weather during play fades smoothly. Cicadas rattle/swell in daylight, crickets call in
+spaced groups at dusk/night, and both retreat in storms and during encounters. Procedural nature audio adds
+stereo gust/rustle, takeoff/landing splashes, bee buzz, UFO hum, star air and firefly tones synchronized to its glow.
+These small sources accompany the existing texture without using FM voices or encounter randomness. FREE has
+no autonomous nature bed. Actor drawings add droplets/ripples, leaf veins, bee anatomy/wings and UFO detailing.
+
+UBSan engine/host checks cover sound sources, day/night selection, fades, two splash timestamps, pause/FREE
+silence, live-key preservation and unchanged fish outcomes. The existing save format, platform and emulator
+remain unchanged. `tools/render_living_review.py --nature` records the actual firmware for review, including
+day/night sound-only WAVs with the ordinary mixer turned down. Device/browser/hardware checks retain the
+documented toolchain limitations; nothing is published or deployed.
+
 ## Living river and keyboard performance, approved 2026-11-12
 
 The user requested shooting stars with their own motif, rare UFOs, jumping fish, windblown leaves, a bee and

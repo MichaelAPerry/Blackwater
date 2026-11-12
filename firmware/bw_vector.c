@@ -249,11 +249,12 @@ static void bw_vector_icon(unsigned kind, int x, int y, uint16_t c)
 static uint16_t bw_vector_music_color(unsigned layer,float distance,float saturation)
 {
     static const uint16_t palette[3][3]={
-        {RGB(104,206,202),RGB(188,151,224),RGB(239,181,108)},
-        {RGB(112,156,229),RGB(93,201,181),RGB(203,139,201)},
-        {RGB(237,193,115),RGB(176,208,141),RGB(112,205,213)}};
+        {RGB(35,244,213),RGB(244,76,233),RGB(255,193,62)},
+        {RGB(51,128,255),RGB(28,240,172),RGB(255,79,178)},
+        {RGB(255,215,61),RGB(159,245,63),RGB(48,229,255)}};
     const bw_river_state *r=&bw.river;
-    float phase=r->color_phase-distance*0.55f+r->color_voice[layer%4u]*0.24f;
+    float phase=r->color_phase-distance*(0.8f+r->bloom*0.9f)+r->color_voice[layer%4u]*0.6f+
+        r->note_flash[layer%4u]*0.13f;
     while(phase<0) phase+=1;
     while(phase>=1) phase-=1;
     float stop=phase*3;
@@ -267,6 +268,8 @@ static void bw_vector_atmosphere(uint32_t t,float bloom,unsigned scene_ink)
 {
     const bw_river_state *r=&bw.river;
     unsigned sky_ink=scene_ink*bw_vector_sky/256u;
+    float dusk=fm_clampf(1-r->daylight-r->night-r->storm,0,1);
+    float darkness=r->night+dusk*0.38f+r->storm*0.12f;
     for(unsigned i=0;i<24;i++)
     {
         unsigned hash=i*2654435761u+0x19381u;
@@ -274,7 +277,7 @@ static void bw_vector_atmosphere(uint32_t t,float bloom,unsigned scene_ink)
         if(x>161 && x<198 && y<66) continue;
         float visibility=i<8 ? 0.34f:bw_vector_ease(bloom-(float)(i%4)*0.08f)*0.72f;
         float breathe=0.80f+0.20f*fm_sinf((float)t*0.00021f+(float)i);
-        bw_vector_opacity=(unsigned)((float)sky_ink*visibility*breathe);
+        bw_vector_opacity=(unsigned)((float)sky_ink*visibility*breathe*darkness);
         uint16_t color=bw_vector_music_color(i%4u,(float)x/240,bloom*0.6f);
         bw_vector_pixel(x,y,color,256);
         if(i%6u==0)
@@ -283,7 +286,7 @@ static void bw_vector_atmosphere(uint32_t t,float bloom,unsigned scene_ink)
         }
         if(i%5u==1 && bloom>0.2f)
         {
-            bw_vector_opacity=(unsigned)((float)sky_ink*bloom*0.16f);
+            bw_vector_opacity=(unsigned)((float)sky_ink*bloom*darkness*0.25f);
             V(x,y,x+9,y+4,C_MUTE);V(x+9,y+4,x+17,y-2,C_MUTE);
         }
     }
@@ -291,28 +294,103 @@ static void bw_vector_atmosphere(uint32_t t,float bloom,unsigned scene_ink)
     {
         float gust=0.5f+0.5f*fm_sinf((float)t*0.00015f+i*1.9f);
         int x=22+(int)i*68+(int)(gust*7),y=57+(int)i*7;
-        bw_vector_opacity=(unsigned)((float)sky_ink*r->wind*(0.18f+bloom*0.40f)*gust);
-        bw_vector_curve(x,y,x+16,y-5,x+32+(int)(r->wind*13),y-2,bw_vector_music_color(i,gust,bloom));
+        bw_vector_opacity=(unsigned)((float)sky_ink*r->wind*(0.30f+bloom*0.55f)*gust);
+        uint16_t color=bw_vector_music_color(i,gust,0.4f+bloom*0.6f);
+        bw_vector_curve(x,y,x+16,y-5,x+32+(int)(r->wind*13),y-2,color);
+        bw_vector_curve(x+9,y+3,x+25,y-1,x+38,y+2,color);
     }
-    /* Sparse bank reeds bend with the same wind that opens the audio's air texture. */
-    bw_vector_opacity=(unsigned)((float)scene_ink*(0.16f+bloom*0.35f));
-    int lean=(int)(r->wind*7*fm_sinf((float)t*0.00036f));
-    bw_vector_curve(18,207,14+lean,188,27+lean,172,C_MUTE);
-    bw_vector_curve(19,202,29+lean,194,32+lean,187,C_MUTE);
-    bw_vector_curve(16,198,8+lean,190,9+lean,184,C_MUTE);
+    /* One shared light state crossfades the sun, crescent, clouds and background. */
+    bw_vector_opacity=(unsigned)((float)sky_ink*(r->daylight+dusk*0.7f));
+    bw_vector_oval(179,49+(int)(dusk*12),9,9,C_YEL);
+    for(unsigned i=0;i<8;i++)
+    {
+        float a=(float)i*FM_TWO_PI/8;
+        V(179+(int)(fm_cosf(a)*13),49+(int)(dusk*12)+(int)(fm_sinf(a)*13),
+          179+(int)(fm_cosf(a)*16),49+(int)(dusk*12)+(int)(fm_sinf(a)*16),C_YEL);
+    }
+    bw_vector_opacity=(unsigned)((float)sky_ink*r->night*0.8f);
+    bw_vector_curve(183,39,161,49,183,59,C_TXT);
+    bw_vector_curve(183,39,173,49,183,59,C_TXT);
+    for(unsigned i=0;i<2;i++)
+    {
+        int x=32+(int)i*73+(int)(r->wind*8*fm_sinf((float)t*0.00009f+(float)i));
+        int y=52+(int)i*16;
+        bw_vector_opacity=(unsigned)((float)sky_ink*(r->daylight*0.24f+r->storm*0.75f));
+        bw_vector_curve(x,y,x+11,y-8,x+22,y-1,C_MUTE);
+        bw_vector_curve(x+22,y-1,x+32,y-12,x+45,y,C_MUTE);
+        bw_vector_curve(x+45,y,x+23,y+6,x,y,C_MUTE);
+    }
     bw_vector_opacity=scene_ink;
 }
 
 #include "bw_life_ui.c"
+
+/* Stable shore geometry also positions water endpoints and grass. Musical detail grows inside it. */
+static void bw_vector_shore(float depth,int *center,int *width,int *y)
+{
+    float perspective=depth*depth;
+    *center=120+(int)(fm_sinf(perspective*FM_TWO_PI)*(1-perspective)*11);
+    *width=20+(int)(perspective*78);
+    *y=88+(int)(perspective*119);
+}
+
+static void bw_vector_banks(uint32_t t,float bloom,unsigned ink)
+{
+    const bw_river_state *r=&bw.river;
+    for(int side=-1;side<=1;side+=2)
+    {
+        int px=0,py=0;
+        bw_vector_opacity=(unsigned)((float)ink*(0.42f+bloom*0.24f));
+        uint16_t bank=bw_vector_music_color(side<0 ? 0:1,0.5f,0.35f+bloom*0.5f);
+        for(unsigned j=0;j<=32;j++)
+        {
+            int center,width,y;bw_vector_shore((float)j/32,&center,&width,&y);
+            int x=center+side*width;
+            if(j)
+            {
+                V(px,py,x,y,bank);
+                if(j>10)
+                {
+                    bw_vector_opacity=(unsigned)((float)ink*(0.15f+bloom*0.12f));
+                    V(px+side*3,py+2,x+side*3,y+2,C_MUTE);
+                    bw_vector_opacity=(unsigned)((float)ink*(0.42f+bloom*0.24f));
+                }
+            }
+            px=x;py=y;
+        }
+        /* Small land contours make the space outside the water legible as ground. */
+        for(unsigned j=0;j<3;j++)
+        {
+            int y=151+(int)j*22,x=side<0 ? 4:236;
+            bw_vector_opacity=(unsigned)((float)ink*(0.15f+bloom*0.16f));
+            bw_vector_curve(x,y,x-side*13,y-4,x-side*(23-(int)j*5),y-2,C_MUTE);
+        }
+        for(unsigned j=0;j<9;j++)
+        {
+            float d=0.34f+(float)j*0.078f;
+            int center,width,y;bw_vector_shore(d,&center,&width,&y);
+            int x=center+side*(width+5+(int)(j%3u)*3);
+            int height=4+(int)(d*11),lean=(int)(r->wind*8*fm_sinf((float)t*0.0011f+j*1.7f));
+            bw_vector_opacity=(unsigned)((float)ink*(0.34f+bloom*0.28f));
+            uint16_t grass=bw_vector_mix(RGB(100,167,111),bw_vector_music_color(j%4u,d,0.9f),
+                (unsigned)((bloom*0.6f+r->reactive*0.25f)*256));
+            bw_vector_curve(x,y,x+lean,y-height/2,x+lean-side*2,y-height,grass);
+            bw_vector_curve(x,y,x+lean+4,y-height/3,x+lean+6,y-height*2/3,grass);
+            V(x,y,x+lean-4,y-height*3/5,grass);
+            if(j%3u==0) V(x+lean-side*2,y-height,x+lean-side*2,y-height-3,bank);
+        }
+    }
+    bw_vector_opacity=ink;
+}
 
 static void bw_vector_river(uint32_t t, float bloom, unsigned world)
 {
     (void)world;
     unsigned scene_ink=bw_vector_opacity;
     bw_vector_atmosphere(t,bloom,scene_ink);
-    bw_vector_opacity=scene_ink*bw_vector_sky/256u*3u/5u;
-    bw_vector_oval(179,49,10,10,C_MUTE);
-    V(24,83,216,83,C_MUTE);
+    bw_vector_banks(t,bloom,scene_ink);
+    bw_vector_opacity=scene_ink*bw_vector_sky/256u/3u;
+    V(24,83,100,83,C_MUTE);V(140,83,216,83,C_MUTE);
     bw_vector_opacity=scene_ink;
     /* A fixed family of sixteen curves: new detail fades in between existing water lines.
      * Their positions never reflow when the sound crosses a complexity threshold. */
@@ -323,20 +401,26 @@ static void bw_vector_river(uint32_t t, float bloom, unsigned world)
         int base=(j%4u)==3u;
         float visibility=base ? 0.72f : bw_vector_ease(bloom*1.6f-(float)(j%4u)*0.14f);
         bw_vector_opacity=(unsigned)((float)scene_ink*visibility);
-        int width=24+(int)(depth*71.0f),prev_x=0,prev_y=0;
+        int center,width,shore_y;bw_vector_shore(depth,&center,&width,&shore_y);
+        width-=3;
+        int prev_x=0,prev_y=0;
         for(unsigned i=0;i<=40;i++)
         {
-            int x=120-width+(int)i*width/20;
+            int x=center-width+(int)i*width/20;
             if (!bw_oy)
             {
-                float across=((float)x-120.0f)/96.0f;
+                float across=((float)x-(float)center)/(float)width;
                 float envelope=1.0f-across*across;
                 float wave=fm_sinf((float)x*0.027f+(float)t*0.00017f+depth*4.2f);
                 float fold=fm_sinf((float)x*0.057f-(float)t*0.00011f-depth*5.0f);
-                stroke_color[j][i]=bw_vector_music_color(j%4u,(float)i/40,bloom*(0.55f+bw.river.energy*0.45f));
+                float saturation=0.32f+bloom*0.65f+bw.river.reactive*0.45f+
+                    bw.river.note_flash[j%4u]*0.18f;
+                if(bw.river.phase>=BW_RIVER_STRIKE) saturation*=0.45f;
+                stroke_color[j][i]=bw_vector_music_color(j%4u,(float)i/40,saturation);
                 if(!base) stroke_color[j][i]=bw_vector_mix(C_MUTE,stroke_color[j][i],180);
-                water[j][i]=(uint16_t)((91.0f+depth*depth*115.0f+
-                    envelope*depth*(2.0f+bloom*23.0f)*wave+bloom*envelope*6.0f*fold)*256.0f);
+                water[j][i]=(uint16_t)(((float)shore_y+
+                    envelope*depth*(2.0f+bloom*20.0f+bw.river.reactive*3)*wave+
+                    bloom*envelope*7.0f*fold)*256.0f);
             }
             int y=water[j][i];
             if(i)

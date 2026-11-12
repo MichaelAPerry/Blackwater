@@ -46,6 +46,19 @@ normal panel settings. The UFO capture runs nineteen minutes of simulation befor
 chromatic keys, held chords, SELECT choosing an operator and a live ratio edit. Individual clips, stills, WAVs,
 input scenarios and logs are alongside them. Controls are documented in [the manual](MANUAL.md#full-keyboard-and-free-play).
 
+The nature/detail revision adds banks/grass, stronger musical colour, event sound, crickets/cicadas and day/night
+lighting. Record it with:
+
+```sh
+python3 tools/render_living_review.py --nature --out build/nature-review
+```
+
+Alongside the wildlife/free-play clips, this produces `daylight.mp4`, `night.mp4`, a forty-second
+`day-to-night.mp4` (weather changed during actual play), and `musical-growth.mp4` (ordinary thirty-second line
+wait, growth → strike → fight). `cicadas.wav` and `crickets.wav` isolate the nature bed using the ordinary mixer;
+no substitute sound engine or post-render sound layers are used. AUTO still cycles day/dusk/night/storm every
+three minutes; it is not sped up for the transition recording. Explicit WEATHER changes trigger that fade.
+
 ## What changed
 
 - One line, independent of four musical layers. All eight fish can approach; bait/depth influence the selection.
@@ -73,6 +86,8 @@ The runner includes original engine tests under UBSan, the new river suite, art 
 synthetic speech playback, normal host controls/storage, manual encounter/off-page progression, and v0.3 restore.
 It also exercises full-key performance, free play, operator selection, mode/key-map persistence, independently
 scheduled wildlife, natural UFO rarity and actual star motifs. Live held keys take priority over background music.
+The nature suite checks actual insect/event audio, day/night fades, both splashes, and pause/FREE silence;
+host controls also check weather preview and restoration of saved lighting. Vector checks cover the banked scene.
 The river suite renders a full ten minutes and checks encounter counts, no overlap, finite/unclipped audio,
 elapsed-time independence, strike grace, pause, recovery, rare speech and harmonic memory. The long synthetic
 clip scenario exercises unattended encounters and rare clip triggers rather than instant automatic catches.

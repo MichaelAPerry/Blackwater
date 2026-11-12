@@ -5,7 +5,8 @@ drawings and interface layouts, using sparse geometry, instrument accents and ne
 
 ## Visual rules
 
-- A dark neutral canvas, chalk foreground, muted structural strokes and one restrained accent per sound world.
+- A dark canvas with day/dusk/night lighting, chalk foreground, muted structural strokes and a flowing palette
+  per sound world. Saturation grows with music and recedes during the encounter/recovery.
 - River scenes use consistent 24-pixel margins, aligned labels and a quiet two-line footer that fades away.
 - All illustrations are lines, curves and paths: river, rod, reel, fish, the Jeremy-inspired portrait, weather,
   navigation icons, operator diagrams, meters, keyboard and patch/session controls. No sprite fallback exists.
@@ -16,13 +17,18 @@ drawings and interface layouts, using sparse geometry, instrument accents and ne
 
 ## Atmosphere and colour
 
-Stars and constellations sit in the open sky; wind traces and sparse reeds share a smoothed wind value with the
-audio air filter. Wind responds to the selected weather. These details remain restrained at rest and yield to
-the strike/fight focus. They do not draw random values from the encounter generator.
+Curved banks, a second edge, land contours and grass make the ground legible. Shared shore geometry places all
+water endpoints inside the banks; grass bends with the same wind state as the audio. The sun/clouds crossfade
+to a crescent/stars as the scene's lighting and insect bed change. Wind responds to the selected weather. These
+details yield to the strike/fight focus and do not draw random values from the encounter generator.
 
 The flowing palette reads played pitch, modulation, FM feedback and layer energy from the real engine. A smooth
-phase carries colour along each curve, with per-layer pitch offsets; energy affects speed and the musical bloom
-affects saturation. Pausing freezes the field, and recovery settles it to the minimal river.
+phase carries colour along each curve, with per-layer pitch offsets. Actual note attacks (including live keys)
+and a faster energy response make the saturated colours move and open with the music. The musical bloom grows
+geometry/saturation; strike/fight/recovery quieten the palette. Pausing freezes the field.
+
+Wildlife geometry includes meteor trails, UFO dome/panels/lights, leaf veins and wind traces, bee head/antennae/
+legs/wings and firefly wings/glow. Fish takeoff and landing ripples/droplets share the audio's splash timestamp.
 
 Typography is an original monoline alphabet from `tools/make_line_font.py`, generated through the repository's
 normal app-generator hook into the native font-header format. It uses no downloaded fonts. All six roles share

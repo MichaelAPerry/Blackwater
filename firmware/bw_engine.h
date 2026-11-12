@@ -15,6 +15,8 @@
 enum { BW_MODE_RIVER, BW_MODE_FREE };
 enum { BW_LIFE_NONE, BW_LIFE_METEOR, BW_LIFE_UFO, BW_LIFE_JUMP, BW_LIFE_LEAF,
        BW_LIFE_BEE, BW_LIFE_FIREFLY, BW_LIFE_COUNT };
+enum { BW_NATURE_AIR, BW_NATURE_SPLASH, BW_NATURE_BUZZ, BW_NATURE_GLINT,
+       BW_NATURE_CRICKET, BW_NATURE_CICADA, BW_NATURE_COUNT };
 
 enum { BW_BLUEGILL, BW_BASS, BW_TROUT, BW_CATFISH, BW_CRAPPIE, BW_PEACOCK, BW_BROOK, BW_FLATHEAD };
 enum { BW_GATE_REST, BW_GATE_NOTE, BW_GATE_TIE };
@@ -50,6 +52,11 @@ typedef struct
     uint32_t life_count[BW_LIFE_COUNT], motif_at, motif_off, motif_token, motif_notes;
     uint8_t life, motif_voice, motif_note, motif_layer, motif_left, motif_pos;
     int8_t motif[4];
+    float daylight, night, storm, reactive, note_flash[4];
+    uint8_t played_note[4], splash_stage;
+    uint32_t splash_at, splash_count;
+    float nature_target[BW_NATURE_COUNT], nature_level[BW_NATURE_COUNT];
+    float nature_phase[5], nature_step[4], nature_pan, nature_hiss, splash_filter;
 } bw_river_state;
 
 typedef struct

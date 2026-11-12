@@ -32,6 +32,15 @@ independence; `performance_simulator.txt` tests panel controls/save/reboot; `key
 key through hooking a fish without changing the performer's layer; `life_simulator.txt` runs over twenty
 minutes of natural scheduling, exercising all six actors including the UFO.
 
+`bw_nature.c` adds fixed-state procedural air/splash/buzz/glint/cricket/cicada sources after the existing FX bus,
+before master gain and strike ducking. Its envelope targets update on the 10 ms river clock; sample-rate ramps
+avoid clicks. It uses the texture noise stream, separate from wildlife and encounter randomness. A maximum of
+five small oscillators (only when audible) adds insect/wing/ringing detail without allocating FM voices. The
+existing master still controls all audio. The light/insect state fades with weather; FREE disables the bed.
+`nature_test.c` checks real audio, insect selection, lighting transitions, event sources, splash timing and
+pause/FREE silence. `nature_simulator.txt` exercises weather preview, in-play crossfade and saved light state.
+Water/grass use the same stable shore geometry; colour reads actual note-on pitches/attacks and output energy.
+
 See [River review](RIVER_REVIEW.md) for artifacts, exact limits and current controls. The earlier source-map and
 sound-design notes below describe the prior version where they refer to fixed fish roles or rapid sequencer steps.
 

@@ -73,7 +73,8 @@ static uint16_t bw_color(unsigned k)
     return c[k % 4];
 }
 /* Line-art palette: graphite, chalk, and restrained instrument accents. */
-#define C_BG RGB(9, 12, 15)       /* deep water */
+static uint16_t bw_background=RGB(9,12,15);
+#define C_BG bw_background       /* river light fades; editor canvas stays graphite */
 #define C_PANEL C_BG             /* open canvas, no filled panels */
 #define C_BAR RGB(44, 54, 61)     /* slack line */
 #define C_YEL RGB(232, 170, 70)   /* lantern amber: global values, the time */
@@ -191,6 +192,13 @@ void bw_on_rare(unsigned k)
 }
 
 /* ------------------------------------------------------------------ storage */
+static void bw_light_preview(void)
+{
+    unsigned weather=bw_weather(&bw);
+    bw.river.daylight=(float)(weather==BW_WEATHER_DAY);
+    bw.river.night=(float)(weather==BW_WEATHER_NIGHT);
+    bw.river.storm=(float)(weather==BW_WEATHER_STORM);
+}
 static void bw_prefs_default(void)
 {
     memset(&bw_pref, 0, sizeof bw_pref);
@@ -268,6 +276,7 @@ static void bw_load_all(void)
     }
     bw.midi_out = bw_pref.midi_out;
     bw_ui.track=bw.live_track;
+    bw_light_preview();
 }
 static int bw_save_all(unsigned slot)
 {
@@ -596,7 +605,10 @@ static void bw_knob(unsigned knob, int d)
             if (knob == 1)
                 s->sync = (uint8_t)bw_step_val(s->sync, d, 0, 1);
             if (knob == 2)
+            {
                 s->weather = (uint8_t)bw_step_val(s->weather, d, 0, BW_NWEATHER - 1);
+                if(!bw.playing) bw_light_preview();
+            }
             if (knob == 3)
                 s->pb_event = (uint8_t)bw_step_val(s->pb_event, d, 0, 1);
         }
@@ -1545,6 +1557,13 @@ static void bw_draw(void)
     }
     right[0] = 0;
     bw_text_copy(right, bw.playing ? "PLAYING" : "STOPPED", sizeof right);
+    bw_background=RGB(9,12,15);
+    if(bw.mode==BW_MODE_RIVER && (bw_ui.page==BW_RIVER || bw_ui.page==BW_FISHING))
+    {
+        bw_background=bw_vector_mix(RGB(20,14,25),RGB(19,35,35),(unsigned)(bw.river.daylight*256));
+        bw_background=bw_vector_mix(bw_background,RGB(6,10,23),(unsigned)(bw.river.night*256));
+        bw_background=bw_vector_mix(bw_background,RGB(12,20,24),(unsigned)(bw.river.storm*256));
+    }
     for (unsigned band = 0; band < 5; band++)
     {
         bw_oy = (int32_t)band * 48;
@@ -1645,6 +1664,11 @@ int app_expect(const char *what, int *got)
                   {"bees",(int)bw.river.life_count[BW_LIFE_BEE]},
                   {"fireflies",(int)bw.river.life_count[BW_LIFE_FIREFLY]},
                   {"motif_notes",(int)bw.river.motif_notes},
+                  {"splashes",(int)bw.river.splash_count},
+                  {"daylight",(int)(bw.river.daylight*100)},
+                  {"night_light",(int)(bw.river.night*100)},
+                  {"storm_light",(int)(bw.river.storm*100)},
+                  {"reactive",(int)(bw.river.reactive*100)},
                   {"river_phase", bw.river.phase},
                   {"river_bloom", (int)(bw.river.bloom * 100)},
                   {"world", bw.river.world},

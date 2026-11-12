@@ -20,6 +20,17 @@ stars bring a short four-note FM motif, repeated once. A UFO is much rarer: the 
 then visits are spaced by at least another 20 minutes. These events yield as a fish approaches and pause with
 the music. Jumping wildlife does not add to the catch log.
 
+The river now has curved banks, ground contours and wind-bent grass. Flowing saturated colour follows the
+actual notes, their attacks and the sound's energy, including your keyboard playing. Detail and colour grow
+with the music, then settle for the strike and return. Wildlife brings passing sound: wind/rustle, bee buzz,
+UFO hum, star air and a soft firefly tone. Jumping fish splash on takeoff and landing, with matching droplets
+and expanding ripples. These sounds leave the eight FM voices available for playing and music.
+
+**Daylight is included.** On **GLO page 1, K3 WEATHER** selects AUTO, DUSK, NIGHT, STORM or DAY. AUTO follows
+day → dusk → night → storm, three minutes each. Day brings the sun/clouds and swelling cicadas; dusk/night
+bring crickets, a crescent and stars. The sky, canvas lighting and insect bed fade together when weather changes
+during play. Stopped edits preview the chosen light immediately. Insects quieten for storms and encounters.
+
 ## Full keyboard and free play
 
 Press **GLO**, then turn **PRESET** to **page 4 / PERFORMANCE** (or press GLO repeatedly).
