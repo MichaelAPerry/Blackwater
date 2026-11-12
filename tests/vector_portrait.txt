@@ -1,0 +1,15 @@
+# Ordinary panel controls and deterministic encounters; no forced species or test-only artwork command.
+wait 600
+tap SEQ
+turn K1 -14
+turn K2 -42
+turn K3 -1
+tap HOME
+tap PLAY
+wait 628400
+expect river_phase 3
+expect clip_plays 1
+shot vector-portrait.png
+wait 2000
+expect river_phase 4
+shot vector-rare-fight.png

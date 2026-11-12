@@ -154,7 +154,7 @@ static void bw_river_control(bw_engine *e)
     float target = r->phase == BW_RIVER_APPROACH ? 1.0f :
                    r->phase == BW_RIVER_STRIKE || r->phase == BW_RIVER_REVEAL ? 0.0f :
                    r->phase == BW_RIVER_FIGHT ? 0.15f :
-                   r->phase == BW_RIVER_RETURN ? 0.30f * (1.0f - (float)(r->ms - r->phase_at) / 30000.0f) :
+                   r->phase == BW_RIVER_RETURN ? 0.0f :
                    r->growth * 0.8f;
     r->bloom += (target - r->bloom) * 0.008f;
     float pressure = r->phase == BW_RIVER_FIGHT

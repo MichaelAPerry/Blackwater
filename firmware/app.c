@@ -3,7 +3,6 @@
 #include "bw_engine.h"
 #include "fastmath.h"
 #include "bw_clip.c"
-#include "bw_art.h"
 static bw_engine bw;
 static bw_clip_state bw_fish_on;
 
@@ -61,7 +60,7 @@ static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 2, 1, 4, 1, 1, 4, 1, 3, 
 static struct
 {
     uint32_t buttons, keys, last_draw, message_until, popup_until, last_input, event_seq, fight_ms;
-    uint32_t fish_on_seen, fish_on_until, reel_turns;
+    uint32_t reel_turns;
     uint8_t track, page, sub[BW_NPAGES], op, route_source, route_dest, patch_pick, slot_pick;
     uint8_t dirty, draw, held;
     int8_t preview[4];
@@ -73,15 +72,15 @@ static uint16_t bw_color(unsigned k)
     static const uint16_t c[] = {RGB(110, 200, 140), RGB(240, 160, 90), RGB(100, 180, 235), RGB(190, 160, 220)};
     return c[k % 4];
 }
-/* BLACKWATER's own palette (docs/ART_PROMPTS.md): river water, reeds, lantern light, the bobber, bone */
-#define C_BG RGB(6, 14, 12)       /* deep water */
-#define C_PANEL RGB(14, 30, 27)   /* shallows: the selected row, panels */
-#define C_BAR RGB(30, 50, 44)     /* slack line */
+/* Line-art palette: graphite, chalk, and restrained instrument accents. */
+#define C_BG RGB(9, 12, 15)       /* deep water */
+#define C_PANEL C_BG             /* open canvas, no filled panels */
+#define C_BAR RGB(44, 54, 61)     /* slack line */
 #define C_YEL RGB(232, 170, 70)   /* lantern amber: global values, the time */
 #define C_PINK RGB(222, 78, 58)   /* bobber red: alerts, recording */
 #define C_GOLD RGB(240, 204, 96)  /* trophy: rare fish */
-#define C_TXT RGB(222, 214, 194)  /* bone white */
-#define C_MUTE RGB(116, 136, 114) /* reed green: labels */
+#define C_TXT RGB(224, 231, 230)  /* chalk */
+#define C_MUTE RGB(113, 130, 137) /* graphite labels */
 
 /* ------------------------------------------------------------------ text */
 static void bw_cat(char *out, unsigned n, const char *s)
@@ -182,12 +181,9 @@ uint32_t bw_midi_room(void)
     return plat_midi_out_room(TO_USB);
 }
 static uint32_t bw_clip_plays;
-static volatile uint32_t bw_fish_on_seq; /* a rare fish took the line: the FISH ON! moment */
-static volatile uint8_t bw_fish_on_track;
 void bw_on_rare(unsigned k)
 {
-    bw_fish_on_track = (uint8_t)(k & 3u);
-    bw_fish_on_seq++;
+    (void)k;
     if (bw_pref.clip_on && bw_clip_present() && !bw_fish_on.active)
         bw_clip_plays++;
     if (bw_pref.clip_on)
@@ -337,7 +333,6 @@ void app_init(void)
         bw_ui.preview[k] = -1;
     memset(&bw_fish_on, 0, sizeof bw_fish_on);
     bw_clip_plays = 0;
-    bw_fish_on_seq = 0;
     bw_ui.route_source = 1;
     bw_ui.draw = 1;
     bw_ui.event_seq = bw.event.seq;
@@ -876,104 +871,13 @@ static void P(int32_t x, int32_t y, uint16_t c)
     if (bw_in(y, 1))
         cv_pset(x, y - bw_oy, c);
 }
-static void bw_sheet_draw2(const bw_sheet *sh, unsigned frame, int32_t x, int32_t y, int32_t scale, uint16_t tint)
-{
-    if (!sh->px || !bw_in(y, sh->h * scale))
-        return;
-    frame %= (unsigned)(sh->cols * sh->rows);
-    const uint8_t *px = sh->px + frame * ((uint32_t)sh->w * sh->h / 2u);
-    for (unsigned j = 0; j < sh->h; j++)
-    {
-        int32_t yy = y + (int32_t)j * scale;
-        if (!bw_in(yy, scale))
-            continue;
-        for (unsigned i = 0; i < sh->w; i++)
-        {
-            unsigned n = j * sh->w + i, b = px[n / 2], c = n & 1 ? b >> 4 : b & 15u;
-            if (c == 0 && sh->key)
-                continue;
-            uint16_t col = tint ? tint : sh->pal[c];
-            if (scale == 1)
-                P(x + (int32_t)i, yy, col);
-            else
-                R(x + (int32_t)i * scale, yy, scale, scale, col);
-        }
-    }
-}
-static void bw_sheet_draw(const bw_sheet *sh, unsigned frame, int32_t x, int32_t y, int flip, uint16_t tint)
-{
-    (void)flip;
-    bw_sheet_draw2(sh, frame, x, y, 1, tint);
-}
-/* a prop (docs/ART_PROMPTS.md 8): 0 hook, 1 bobber, 2 tilted, 3 under, 4-7 splash, 8-10 ripples, 11 worm,
- * 12 crankbait, 13 spinner, 14 ruler, 15 trophy, 16 lantern, 17 bubble */
-static int bw_prop(unsigned cell, int32_t x, int32_t y)
-{
-    if (!bw_art_props[0].px)
-        return 0;
-    bw_sheet_draw(&bw_art_props[0], cell, x, y, 0, 0);
-    return 1;
-}
-/* the fish, until its art arrives: a pixel shape per kind, coloured per species */
-/* frames (prompts 2-5): 0-3 swimming, 4-5 idle, 6 taking the bait, 7-9 fighting, 10 landed, 11 silhouette;
- * dim: the silhouette. A rare fish without its own sheet borrows its cousin's, with a gold glint */
-static void bw_draw_fish_at(int32_t x, int32_t y, unsigned sp, unsigned frame, int dim, int32_t scale)
-{
-    const bw_sheet *sh = &bw_art_fish[sp % BW_SPECIES];
-    int borrowed = 0;
-    if (!sh->px && sp >= 4 && bw_art_fish[sp - 4].px)
-        sh = &bw_art_fish[sp - 4], borrowed = 1;
-    if (sh->px)
-    {
-        bw_sheet_draw2(sh, dim ? 11u : frame, x, y, scale, 0);
-        if (borrowed && !dim)
-            R(x + 20 * scale, y + 2 * scale, 2 * scale, 2 * scale, C_GOLD);
-        return;
-    }
-    (void)scale;
-    static const uint16_t body[8] = {RGB(90, 150, 120), RGB(110, 140, 70),  RGB(190, 150, 80),  RGB(110, 120, 135),
-                                     RGB(150, 160, 150), RGB(210, 190, 60), RGB(80, 120, 90),   RGB(150, 120, 80)};
-    static const uint16_t mark[8] = {RGB(240, 150, 50), RGB(40, 60, 30),   RGB(200, 40, 40),   RGB(220, 220, 230),
-                                     RGB(40, 50, 40),   RGB(220, 70, 40),  RGB(230, 120, 60),  RGB(70, 50, 30)};
-    uint16_t c = dim ? RGB(35, 55, 70) : body[sp % 8], m = dim ? c : mark[sp % 8];
-    unsigned kind = sp % 4, sw = frame & 1;
-    int32_t h = kind == BW_BLUEGILL ? 18 : kind == BW_CATFISH ? 10 : 12, cy = y + 12;
-    R(x + 10, cy - h / 2, 28, h, c);                          /* body */
-    R(x + 6, cy - h / 2 + 2, 4, h - 4, c);
-    R(x + 38, cy - h / 2 + 2, 6, h - 4, c);                   /* head */
-    R(x, cy - 7 + (int32_t)sw, 6, 14 - 2 * (int32_t)sw, c);   /* tail */
-    R(x + 16, cy - h / 2 - 3, 12, 3, c);                      /* dorsal */
-    R(x + 40, cy - 2, 2, 2, C_BLACK);                         /* eye */
-    if (kind == BW_BLUEGILL)
-        R(x + 34, cy - 2, 3, 4, m);                           /* ear flap / crappie speckle */
-    else if (kind == BW_BASS)
-        R(x + 10, cy, 30, 2, m);                              /* lateral stripe / peacock bars */
-    else if (kind == BW_TROUT)
-    {
-        R(x + 14, cy - 3, 2, 2, m);
-        R(x + 22, cy + 1, 2, 2, m);
-        R(x + 30, cy - 2, 2, 2, m);
-    }
-    else
-    {
-        R(x + 44, cy + 1, 4, 1, m);                           /* barbels */
-        R(x + 44, cy + 3, 3, 1, m);
-    }
-    if (sp >= 4 && !dim)
-        R(x + 20, cy - h / 2 - 5, 2, 2, C_GOLD);              /* the rare one's glint */
-}
-static void bw_draw_fish(int32_t x, int32_t y, unsigned sp, unsigned frame, int dim)
-{
-    bw_draw_fish_at(x, y, sp, frame, dim, 1);
-}
+#include "bw_vector.c"
+
 static void bw_bar(int32_t x, int32_t y, int32_t w, int value, int max, uint16_t c)
 {
-    int32_t f = max > 0 ? (int32_t)((int64_t)w * clamp(value, 0, max) / max) : 0;
-    int32_t bx = x + f - 2 < x ? x : x + f - 2;
-    R(x, y + 2, w, 1, C_BAR);   /* the line */
-    R(x, y + 1, f, 3, c);       /* reeled in so far */
-    R(bx, y - 2, 4, 4, C_PINK); /* the bobber: red over white */
-    R(bx, y + 2, 4, 3, C_TXT);
+    int32_t f = max > 0 ? w * clamp(value, 0, max) / max : 0;
+    L(x,y+2,x+w,y+2,C_BAR);
+    bw_vector_oval(x+f,y+2,2,2,c);
 }
 /* a parameter: label, value, bar (MIKU-FM's mixer rows) */
 static void bw_param(int32_t x, int32_t y, const char *label, const char *value, int v, int max, uint16_t c)
@@ -989,13 +893,6 @@ static void bw_param_n(int32_t x, int32_t y, const char *label, int v, int max, 
     char t[12];
     bw_num(t, v);
     bw_param(x, y, label, t, v, max, c);
-}
-static int bw_kit(const bw_sheet *sh, unsigned cell, int32_t x, int32_t y, int32_t scale)
-{
-    if (!sh->px)
-        return 0;
-    bw_sheet_draw2(sh, cell, x, y, scale, 0);
-    return 1;
 }
 static unsigned bw_weather_icon(void) /* the icons: day, dusk, night, storm */
 {
@@ -1053,14 +950,13 @@ static void bw_header(const char *title, uint16_t c, const char *right)
         int32_t x = 3 + (int32_t)p * 19;
         if (p == bw_ui.page)
             R(x - 1, 0, 18, 17, C_PANEL);
-        if (!bw_kit(&bw_art_icons[0], p, x, 0, 1))
-            R(x + 4, 6, 8, 4, p == bw_ui.page ? c : C_BAR);
+        bw_vector_icon(p, x, 0, p == bw_ui.page ? c : C_MUTE);
         if (p == bw_ui.page)
             R(x - 1, 16, 18, 2, c);
     }
     T(4, 17, &FONT_B, title, c);
     TR(234, 18, &FONT_XS, right, bw.playing ? C_YEL : C_MUTE);
-    bw_kit(&bw_art_weather[0], bw_weather_icon(), 234 - text_w(&FONT_XS, right) - 19, 16, 1);
+    bw_vector_weather(bw_weather_icon(), 234 - text_w(&FONT_XS, right) - 19, 16, 1);
     if (bw_ui.dirty)
         T(234 - text_w(&FONT_XS, right) - 28, 18, &FONT_XS, "*", C_PINK);
     t[0] = 0;
@@ -1160,38 +1056,6 @@ static const char *bw_state_text(unsigned k)
         return "REC TO CAST";
     }
 }
-static void bw_draw_bobber(int32_t x, int32_t y, unsigned k, uint32_t ms)
-{
-    k &= 3u;
-    int st = bw_fish_state(&bw, k);
-    int32_t bob = (ms / 300u + k) & 1;
-    int32_t left = (int32_t)(bw.deadline[k] - bw.clock);
-    int nibble = st == BW_FISH_WAIT && bw.playing && left >= 0 && left < (int32_t)BW_RATE;
-    if (nibble)
-        bob = (ms / 90u) & 1 ? 2 : -1;
-    if (bw_art_props[0].px)
-    {
-        int32_t px = x - 11, py = y - 14;
-        if (st == BW_FISH_BITE || st == BW_FISH_FIGHT)
-        {
-            bw_prop(8u + (ms / 150u) % 3u, px, py + 4); /* rings */
-            bw_prop(3, px, py + 2);                     /* pulled under */
-        }
-        else
-            bw_prop(nibble ? 2u : 1u, px, py + bob);
-        return;
-    }
-    if (st == BW_FISH_BITE || st == BW_FISH_FIGHT)
-    {
-        int32_t r = (int32_t)(ms / 60u % 8u);
-        R(x - r, y + 6, 2 * r + 2, 1, C_TXT); /* rings */
-        R(x - 1, y + 4, 4, 2, RGB(220, 60, 50)); /* pulled under */
-        return;
-    }
-    R(x, y + bob, 3, 3, RGB(230, 70, 60));
-    R(x, y + 3 + bob, 3, 3, C_WHITE);
-    R(x + 1, y - 6 + bob, 1, 6, C_MUTE);
-}
 static void bw_draw_theme(int32_t y0, int32_t h, unsigned k)
 {
     const bw_theme *th = &bw.track[k].cur;
@@ -1219,10 +1083,10 @@ static void bw_draw_theme(int32_t y0, int32_t h, unsigned k)
         {
             lasty = y0 + h - 4 - (s->deg - lo + 1) * rowh;
             lastx = 6 + (int32_t)i * cw;
-            R(lastx, lasty, cw - 1, rowh > 4 ? 4 : rowh, bw_color(k));
+            bw_vector_box(lastx,lasty,cw-2,rowh>4 ? 3:rowh,bw_color(k));
         }
         else if (s->gate == BW_GATE_TIE && lastx >= 0)
-            R(6 + (int32_t)i * cw - 1, lasty, cw, rowh > 4 ? 4 : rowh, bw_color(k));
+            L(6+(int32_t)i*cw-1,lasty,6+(int32_t)(i+1)*cw-1,lasty,bw_color(k));
     }
     if (bw.playing)
     {
@@ -1230,162 +1094,6 @@ static void bw_draw_theme(int32_t y0, int32_t h, unsigned k)
         R(6 + (int32_t)st * cw, y0, cw, 2, C_YEL);
     }
 }
-static void bw_draw_popup(void)
-{
-    const bw_event *ev = &bw_ui.popup;
-    char t[24];
-    if (bw_art_frames[0].px) /* the wooden frame: nine pieces, the edges repeated */
-    {
-        const bw_sheet *fr = &bw_art_frames[0];
-        for (int32_t y = 104; y < 192; y += 24)
-            for (int32_t x = 8; x < 232; x += 24)
-            {
-                int32_t xx = x > 208 ? 208 : x, yy = y > 168 ? 168 : y;
-                unsigned col = xx == 8 ? 0 : xx == 208 ? 2 : 1, row = yy == 104 ? 0 : yy == 168 ? 2 : 1;
-                bw_sheet_draw(fr, row * 3 + col, xx, yy, 0, 0);
-            }
-        R(15, 111, 210, 74, C_BG);
-        if (ev->rare)
-            R(15, 111, 210, 1, C_GOLD);
-    }
-    else
-    {
-        R(8, 104, 224, 88, C_PANEL);
-        R(8, 104, 224, 2, ev->rare ? C_GOLD : bw_color(ev->track));
-    }
-    if (ev->result == BW_FIGHT_LANDED)
-    {
-        const bw_sheet *pt = &bw_art_portraits[ev->species % BW_SPECIES];
-        if (pt->px)
-            bw_sheet_draw(pt, ev->species % 4u, 14, 112, 0, 0);
-        else
-            bw_draw_fish_at(10, 128, ev->species, 10, 0, 1);
-        if (ev->rare && bw_art_banner[0].px)
-            bw_sheet_draw(&bw_art_banner[0], 0, 45, 52, 0, 0);
-        if (ev->best)
-            bw_prop(15, 204, 108);
-        T(80, 110, &FONT_XS, ev->rare ? "RARE CATCH!" : "CAUGHT", ev->rare ? C_GOLD : C_MUTE);
-        T(80, 126, &FONT_B, bw_species_names[ev->species], C_TXT);
-        t[0] = 0;
-        bw_length_text(t, ev->mm);
-        T(80, 146, &FONT_B, t, C_YEL);
-        t[0] = 0;
-        bw_weight_text(t, ev->g);
-        T(160, 146, &FONT_B, t, C_YEL);
-        T(80, 168, &FONT_XS, ev->key_change ? "NEW BEST: KEY CHANGE" : ev->best ? "NEW PERSONAL BEST" : "THEME CHANGED",
-          ev->best ? C_PINK : C_MUTE);
-    }
-    else
-    {
-        T(20, 120, &FONT_B, ev->result == BW_FIGHT_SNAPPED ? "LINE SNAPPED" : "THREW THE HOOK", C_PINK);
-        T(20, 146, &FONT_XS, ev->rare ? "IT WAS SOMETHING BIG..." : "IT GOT AWAY", C_MUTE);
-    }
-}
-/* FISH ON!: a strike, 1.6 s. The bobber is yanked under; a flash and a shake; the portrait slams in from the left
- * over spinning speed lines; FISH crashes in from the right and ON! drops in; spray bursts up from the water; a
- * wave sweeps up and washes it all away (bw_draw draws the page beneath it). t: ms since the strike */
-#define BW_STRIKE_MS 1600u
-static float bw_ease_back(float u) /* overshoots, then settles: 0 -> 1 */
-{
-    u = fm_clampf(u, 0.0f, 1.0f) - 1.0f;
-    return 1.0f + u * u * (2.7f * u + 1.7f);
-}
-static void bw_text_punch(int32_t x, int32_t y, const char *s, uint16_t c)
-{
-    static const int8_t o[8][2] = {{-2, 0}, {2, 0}, {0, -2}, {0, 2}, {-2, -2}, {2, 2}, {-2, 2}, {2, -2}};
-    for (unsigned i = 0; i < 8; i++) /* a heavy dark outline: the words read over anything */
-        T(x + o[i][0], y + o[i][1], &FONT_L, s, C_BLACK);
-    T(x + 3, y + 4, &FONT_L, s, RGB(120, 70, 20));
-    T(x, y, &FONT_L, s, c);
-}
-static void bw_draw_fish_on(uint32_t t)
-{
-    /* the shake: hard at the strike, dying away by 0.6 s */
-    int32_t sx = 0, sy = 0;
-    if (t > 180 && t < 700)
-    {
-        int32_t amp = (int32_t)(7.0f * (1.0f - (float)(t - 180) / 520.0f)) + 1;
-        sx = (t / 30u) & 1 ? amp : -amp;
-        sy = (t / 45u) & 1 ? amp / 2 : -amp / 2;
-    }
-    /* 0-180 ms: the bobber goes under, rings spreading */
-    if (t < 180)
-    {
-        R(0, 48, 240, 192, C_BG);
-        int32_t r = (int32_t)t / 6;
-        for (int32_t a = 0; a < 3; a++)
-        {
-            int32_t rr = r - a * 9;
-            if (rr > 0)
-            {
-                L(120 - rr * 2, 150, 120 + rr * 2, 150, a ? C_BAR : C_TXT);
-                L(120 - rr, 150 - rr / 3, 120 + rr, 150 - rr / 3, C_BAR);
-            }
-        }
-        if (!bw_prop(3, 108, 132 + (int32_t)t / 20))
-            R(116, 140 + (int32_t)t / 20, 8, 6, C_PINK);
-        return;
-    }
-    /* the flash */
-    if (t < 260)
-    {
-        R(0, 48, 240, 192, t < 220 ? RGB(240, 236, 220) : C_GOLD);
-        return;
-    }
-    R(0, 48, 240, 192, RGB(10, 22, 20));
-    /* speed lines, turning */
-    float spin = (float)t * 0.0025f;
-    for (int i = 0; i < 18; i++)
-    {
-        float an = spin + (float)i * (FM_TWO_PI / 18.0f), co = fm_cosf(an), si = fm_sinf(an);
-        L(64 + sx + (int32_t)(co * 40.0f), 116 + sy + (int32_t)(si * 40.0f), 64 + sx + (int32_t)(co * 260.0f),
-          116 + sy + (int32_t)(si * 260.0f), i & 1 ? RGB(22, 44, 38) : RGB(40, 66, 52));
-    }
-    /* the burst on the water, behind everything: star, explosion, spray, rings */
-    if (t < 1300)
-        bw_kit(&bw_art_burst[0], t < 330 ? 0u : t < 560 ? 1u : t < 860 ? 2u : 3u, 56, 132 + sy, 2);
-    /* the portrait: in from the left, overshooting */
-    int32_t px = -120 + (int32_t)(132.0f * bw_ease_back((float)(t - 260) / 260.0f));
-    if (bw_art_portrait[0].px)
-    {
-        R(px + sx - 3, 57 + sy, 118, 118, C_GOLD);
-        bw_sheet_draw2(&bw_art_portrait[0], 0, px + sx, 60 + sy, 1, 0);
-    }
-    else /* no portrait in this build: the fish itself, twice the size, thrashing */
-        bw_draw_fish_at(px + sx, 92 + sy, bw.fish[bw_fish_on_track], 7u + t / 120u % 3u, 0, 2);
-    /* the words: FISH from the right, ON! dropping in */
-    int32_t fx = 240 - (int32_t)(110.0f * bw_ease_back((float)((int32_t)t - 360) / 220.0f));
-    if (t > 360)
-        bw_text_punch(fx + sx, 74 + sy, "FISH", C_GOLD);
-    int32_t oy = -40 + (int32_t)(150.0f * bw_ease_back((float)((int32_t)t - 520) / 220.0f));
-    if (t > 520)
-        bw_text_punch(150 + sx, oy + sy, "ON!", C_GOLD);
-    /* spray: thrown up from the water, falling back */
-    float st = (float)(t - 260) / 1000.0f;
-    for (unsigned i = 0; i < 40; i++)
-    {
-        uint32_t h = i * 2654435761u;
-        float vx = (float)((int)(h >> 8 & 255) - 128) * 0.9f, vy = 160.0f + (float)(h >> 16 & 127);
-        int32_t x = 120 + (int32_t)(vx * st), y = 240 - (int32_t)(vy * st - 180.0f * st * st);
-        if (y < 238 && y > 48)
-            R(x + sx, y + sy, i % 3 ? 2 : 3, i % 3 ? 2 : 3, i & 1 ? C_TXT : RGB(150, 200, 210));
-    }
-    /* the water line */
-    if (!bw_kit(&bw_art_water[0], t / 120u % 4u, 0, 224, 1))
-        for (int32_t x = 0; x < 240; x += 4)
-            R(x, 226 + (int32_t)(3.0f * fm_sinf((float)x * 0.09f + (float)t * 0.012f)), 4, 14, RGB(16, 40, 44));
-}
-/* the wave that washes FISH ON! away: its top edge at row y (the page shows beneath), foam on the crest */
-static void bw_draw_wave(int32_t y, uint32_t t)
-{
-    for (int32_t x = 0; x < 240; x += 3)
-    {
-        int32_t yy = y + (int32_t)(5.0f * fm_sinf((float)x * 0.07f + (float)t * 0.02f));
-        R(x, yy, 3, 3, C_TXT);
-        R(x, yy + 3, 3, 4, RGB(60, 120, 130));
-    }
-}
-/* the patch's routing: modulators left, carriers right, a line for each route, the chosen operator outlined */
 static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned sel, uint16_t c)
 {
     int depth[6], col_n[6] = {0, 0, 0, 0, 0, 0}, slot[6], xs[6], ys[6];
@@ -1413,9 +1121,8 @@ static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned
     for (int i = 0; i < 6; i++)
     {
         int32_t w = 2 + (int32_t)p->op[i].level * 20 / 100; /* brightness by level: a bar inside the box */
-        R(xs[i], ys[i], 22, 7, i == (int)sel ? C_YEL : C_BAR);
-        R(xs[i] + 1, ys[i] + 1, 20, 5, C_BG);
-        R(xs[i] + 1, ys[i] + 1, w > 20 ? 20 : w, 5, p->carrier[i] ? c : C_MUTE);
+        bw_vector_box(xs[i],ys[i],22,7,i == (int)sel ? C_YEL:C_BAR);
+        L(xs[i]+2,ys[i]+3,xs[i]+(w>20 ? 20:w),ys[i]+3,p->carrier[i] ? c:C_MUTE);
         if (p->op[i].feedback)
             R(xs[i] + 9, ys[i] - 2, 4, 1, C_PINK); /* feedback */
         if (p->carrier[i])
@@ -1437,139 +1144,9 @@ static void bw_draw_page(uint32_t ms)
     switch (bw_ui.page)
     {
     case BW_RIVER:
-    {
-        /* the river at the weather: dusk (and day), night, storm; four lanes, one per fish */
-        static const uint8_t panel[BW_NWEATHER] = {0, 0, 1, 2, 0};
-        static const char *const short_name[4] = {"BLUEGILL", "BASS", "TROUT", "CATFISH"};
-        const bw_sheet *bg = &bw_art_river[0];
-        int art = bg->px != 0;
-        if (art)
-            bw_sheet_draw(bg, panel[bw_weather(&bw)], 0, 0, 0, 0);
-        for (unsigned i = 0; i < 4; i++)
-        {
-            int32_t y = 48 + (int32_t)i * 41;
-            const bw_track *ti = &bw.track[i];
-            int st = bw_fish_state(&bw, i);
-            if (!art)
-                R(0, y, 240, 41, i == k ? C_PANEL : C_BG);
-            if (i == k)
-                R(0, y + 3, 3, 35, bw_color(i)); /* the chosen fish */
-            if (st == BW_FISH_BITE && (ms / 200u) % 2u == 0)
-                R(0, y, 240, 2, C_PINK); /* a bite: REC answers it */
-            unsigned sp = st == BW_FISH_FIGHT ? bw.fish[i] : i;
-            unsigned frame = st == BW_FISH_FIGHT  ? 7u + ms / 150u % 3u
-                             : st == BW_FISH_BITE ? 6u
-                             : st == BW_FISH_WAIT ? ms / 220u % 4u
-                                                  : 4u + ms / 700u % 2u;
-            bw_draw_fish(8, y + 9, sp, frame, 0);
-            TS(62, y + 2, &FONT_XS, bw_species_names[i], i == k ? C_TXT : C_MUTE);
-            /* what the lane is doing: a catch just now, a bite, muted, silent, or the line */
-            const char *what = bw_state_text(i);
-            uint16_t wc = bw_color(i);
-            t[0] = 0;
-            int32_t since = (int32_t)(ms - (bw_ui.popup_until - 3500u));
-            if (bw_ui.popup.track == i && since >= 0 && since < 3500)
-            {
-                if (bw_ui.popup.result == BW_FIGHT_LANDED)
-                {
-                    bw_cat(t, sizeof t, "CAUGHT ");
-                    char l[16] = "";
-                    bw_length_text(l, bw_ui.popup.mm);
-                    bw_cat(t, sizeof t, l);
-                    what = t;
-                    wc = bw_ui.popup.rare ? C_GOLD : C_TXT;
-                }
-                else
-                    what = "IT GOT AWAY", wc = C_PINK;
-            }
-            else if (ti->mute)
-                what = "MUTED - SEQ, SEQ, K4", wc = C_PINK;
-            else if (!ti->volume)
-                what = "SILENT - TURN ITS KNOB", wc = C_PINK;
-            TS(62, y + 20, &FONT_XS, what, wc);
-            if (st != BW_FISH_IDLE)
-                bw_draw_bobber(224, y + 22, i, ms);
-            int32_t m = (int32_t)(fm_minf(1.0f, bw.meter[i] * 2.0f) * 30.0f); /* what the fish is playing now */
-            R(178, y + 30, 30, 2, C_BG);
-            R(178, y + 30, m, 2, bw_color(i));
-            bw_kcell(&kc[i], short_name[i], ti->volume, 100, 0);
-        }
-        bw_knob_bar(kc, C_YEL);
-        return;
-    }
     case BW_FISHING:
-    {
-        int st = bw_fish_state(&bw, k);
-        if (st == BW_FISH_FIGHT)
-        {
-            float tn = bw.fight_tension[k], d = bw.fight_dist[k];
-            bw_draw_fish(20, 56 + (int32_t)(ms / 80u % 3u), bw.fish[k], 7u + ms / 120u % 3u, 0);
-            bw_kit(&bw_art_fight[0], 4u + (unsigned)fm_minf(3.0f, tn / 26.0f), 186, 70, 1); /* the rod bends */
-            T(80, 52, &FONT_B, bw.fish_rare[k] ? "SOMETHING BIG!" : "FISH ON!", bw.fish_rare[k] ? C_GOLD : C_YEL);
-            T(80, 70, &FONT_XS, bw.fight_run[k] > 0.0f ? "IT'S RUNNING: EASE OFF" : "REEL IN", bw.fight_run[k] > 0.0f ? C_PINK : C_TXT);
-            T(8, 96, &FONT_XS, "LINE TENSION", C_MUTE);
-            R(8, 113, 224, 10, C_BAR);
-            R(8, 113, (int32_t)(224.0f * fm_clampf(tn / 100.0f, 0, 1)), 10,
-              tn > 80 ? RGB(240, 70, 60) : tn > 55 ? C_YEL : RGB(110, 200, 140));
-            T(8, 130, &FONT_XS, "DISTANCE", C_MUTE);
-            R(8, 147, 224, 10, c);
-            R(8, 147, (int32_t)(224.0f * fm_clampf(1.0f - d / fm_maxf(bw.fight_max[k], 1.0f), 0, 1)), 10, C_TXT);
-            int reel = bw_kit(&bw_art_fight[0], bw_ui.reel_turns % 4u, 4, 164, 1);
-            T(reel ? 58 : 8, 164, &FONT_XS, "TOO TIGHT SNAPS THE LINE", C_MUTE);
-            T(reel ? 58 : 8, 180, &FONT_XS, "TOO SLACK THROWS THE HOOK", C_MUTE);
-            bw_kit(&bw_art_water[0], ms / 160u % 4u, 0, 195, 1);
-            bw_kcell(&kc[0], "REEL", 0, 0, "TURN");
-            bw_kcell(&kc[1], "ALSO", 0, 0, "SELECT");
-            bw_kcell(&kc[2], "OR TAP", 0, 0, "REC");
-            bw_knob_bar(kc, C_YEL);
-            return;
-        }
-        int32_t depth_y = 58 + (int32_t)tr->depth * 11;
-        if (bw_art_river[0].px)
-        {
-            static const uint8_t panel[BW_NWEATHER] = {0, 0, 1, 2, 0};
-            bw_sheet_draw(&bw_art_river[0], panel[bw_weather(&bw)], 0, -50, 0, 0); /* the water */
-            R(0, 112, 240, 99, C_BG);
-        }
-        else
-            R(0, 48, 240, 64, RGB(10, 30, 40));
-        R(120, 54, 1, depth_y - 50, C_MUTE); /* the line, down to the depth */
-        if (st != BW_FISH_IDLE)
-            bw_draw_bobber(119, 58, k, ms);
-        bw_draw_fish(150, depth_y, k, st == BW_FISH_BITE ? 6u : ms / 250u % 4u, st == BW_FISH_IDLE);
-        TS(8, 52, &FONT_XS, bw_depth_names[tr->depth], C_TXT);
-        int32_t left = (int32_t)(bw.deadline[k] - bw.clock);
-        T(8, 116, &FONT_B, st == BW_FISH_BITE ? "BITE! PRESS REC" : st == BW_FISH_WAIT ? (tr->manual ? "WATCH THE BOBBER" : "WAITING")
-                                                                                    : "LINE OUT: REC CASTS",
-          st == BW_FISH_BITE ? C_PINK : C_TXT);
-        /* the wait as a line: the shortest to the longest, the time so far */
-        int32_t x0 = 8, w = 224, yy = 146;
-        R(x0, yy, w, 3, C_BAR);
-        int32_t a0 = x0 + w * tr->wait_min / 600, a1 = x0 + w * tr->wait_max / 600;
-        R(a0, yy - 2, a1 - a0 + 2, 7, c);
-        if (st == BW_FISH_WAIT && bw.playing && left > 0)
-        {
-            int32_t at = x0 + w * clamp(left / (int32_t)BW_RATE, 0, 600) / 600;
-            R(at, yy - 5, 2, 13, C_TXT);
-            bw_num(t, left / (int32_t)BW_RATE);
-            bw_cat(t, sizeof t, " S");
-            TR(232, 116, &FONT_B, t, C_YEL);
-        }
-        T(8, 156, &FONT_T, "WAIT 0", C_MUTE);
-        TR(232, 156, &FONT_T, "600 S", C_MUTE);
-        if (bw_kit(&bw_art_weather[0], bw_weather_icon(), 8, 176, 1))
-            T(28, 178, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_YEL);
-        {
-            static const uint8_t icon[BW_NBAIT] = {11, 12, 13, 0}; /* worm, crankbait, spinner, jig: the hook */
-            bw_prop(icon[tr->bait], 120, 170);
-            T(146, 178, &FONT_XS, bw_bait_names[tr->bait], C_TXT);
-        }
-        bw_kcell(&kc[0], "MIN S", tr->wait_min, 600, 0);
-        bw_kcell(&kc[1], "MAX S", tr->wait_max, 600, 0);
-        bw_kcell(&kc[2], "MODE", tr->manual, 1, tr->manual ? "TIMED" : "AUTO");
-        bw_kcell(&kc[3], "BAIT", tr->bait, BW_NBAIT - 1, bw_bait_names[tr->bait]);
-        break;
-    }
+        bw_draw_river_scene(ms, bw_ui.page == BW_FISHING);
+        return;
     case BW_THEME:
         bw_draw_theme(52, 120, k);
         if (sub == 0)
@@ -1603,8 +1180,8 @@ static void bw_draw_page(uint32_t ms)
                 bw_num(t, (int)l->count);
                 TR(132, y, &FONT_XS, t, C_TXT);
                 uint32_t mx = bw_species_max_mm(sp), b = l->best_mm;
-                R(140, y + 7, 90, 3, C_BAR);
-                R(140, y + 7, (int32_t)(b >= mx ? 90 : b * 90 / mx), 3, b > mx ? C_GOLD : bw_color(sp % 4));
+                L(140,y+8,230,y+8,C_BAR);
+                bw_vector_oval(140+(int)(b>=mx ? 90:b*90/mx),y+8,2,2,b>mx ? C_GOLD:bw_color(sp%4));
             }
         else
         {
@@ -1637,16 +1214,16 @@ static void bw_draw_page(uint32_t ms)
         {
             int pc = white_pc[w];
             int32_t x = 8 + w * 32;
-            R(x, 100, 30, 72, chord[pc] ? C_PINK : in[pc] ? C_YEL : C_TXT);
+            bw_vector_box(x,100,30,72,chord[pc] ? C_PINK:in[pc] ? C_YEL:C_MUTE);
             if (pc == s->key)
-                R(x + 11, 162, 8, 5, C_BG);
+                bw_vector_oval(x+15,164,3,3,C_YEL);
         }
         for (int b = 0; b < 5; b++)
         {
             int pc = black_pc[b];
             int32_t x = 8 + (black_after[b] + 1) * 32 - 10;
             R(x - 1, 100, 20, 44, C_BG);
-            R(x + 1, 100, 16, 42, chord[pc] ? C_PINK : in[pc] ? RGB(150, 104, 40) : C_BAR);
+            bw_vector_box(x+1,100,16,42,chord[pc] ? C_PINK:in[pc] ? C_YEL:C_MUTE);
         }
         T(8, 182, &FONT_XS, "IN THE SCALE", C_YEL);
         T(110, 182, &FONT_XS, "IN THE CHORD", C_PINK);
@@ -1677,7 +1254,7 @@ static void bw_draw_page(uint32_t ms)
             T(6, 194, &FONT_T, "K2 RIGHT LOADS IT. K3 RIGHT STORES TO A USER SLOT", C_MUTE);
         }
         else
-            T(6, 180, &FONT_T, "WHITE KEYS PLAY THE FISH. BLACK KEYS BEND ITS FM", C_MUTE);
+            T(6, 180, &FONT_T, "WHITE KEYS PLAY THE LAYER. BLACK KEYS BEND ITS FM", C_MUTE);
         if (sub == 0)
         {
             bw_kcell(&kc[0], "RATIO", o->ratio, 1600, 0);
@@ -1770,7 +1347,7 @@ static void bw_draw_page(uint32_t ms)
     }
     case BW_FX:
     {
-        static const char *const titles[4] = {"THIS FISH'S SENDS", "REVERB, ECHO TIME", "ECHO, CHORUS", "MASTER, FISH PAN"};
+        static const char *const titles[4] = {"LAYER SENDS", "REVERB, ECHO TIME", "ECHO, CHORUS", "MASTER, LAYER PAN"};
         static const char *const lab[4][4] = {{"REVERB", "ECHO", "CHORUS", "DRIVE"},
                                               {"SIZE", "TONE", "LEVEL", "TIME"},
                                               {"FEEDBK", "LEVEL", "RATE", "DEPTH"},
@@ -1785,8 +1362,9 @@ static void bw_draw_page(uint32_t ms)
         for (unsigned i = 0; i < 4; i++)
         {
             int32_t x = 14 + (int32_t)i * 58, h = 120 * v[sub][i] / 100;
-            R(x, 72, 30, 120, C_BAR);
-            R(x, 192 - h, 30, h, sub == 0 || sub == 3 ? c : C_PINK);
+            L(x+15,72,x+15,192,C_BAR);
+            for (int j=0;j<=4;j++) L(x+11,72+j*30,x+19,72+j*30,C_MUTE);
+            bw_vector_oval(x+15,192-h,5,5,sub == 0 || sub == 3 ? c:C_YEL);
             bw_kcell(&kc[i], lab[sub][i], v[sub][i], 100, 0);
         }
         bw_text_copy(kc[sub == 1 ? 3 : 0].value, sub == 1 ? dtime[v[1][3] * 6u / 101u] : kc[0].value, sizeof kc[0].value);
@@ -1802,8 +1380,8 @@ static void bw_draw_page(uint32_t ms)
                                                     {0, 1, 2, 1, 0, 1, 2, 1}, {1, 0, 2, 2, 0, 1, 0, 2},
                                                     {0, 2, 1, 0, 2, 1, 0, 2}};
         for (unsigned i = 0; i < 8; i++)
-            R(10 + (int32_t)i * 28, 180 - pat[s->arp_mode][i] * 26 - 14, 22 * s->arp_gate / 100 + 2, 12, c);
-        T(6, 190, &FONT_T, "HOLD WHITE KEYS: THE CHOSEN FISH ARPEGGIATES", C_MUTE);
+            bw_vector_box(10+(int32_t)i*28,180-pat[s->arp_mode][i]*26-14,22*s->arp_gate/100+2,12,c);
+        T(6, 190, &FONT_T, "HOLD WHITE KEYS: THE CHOSEN LAYER ARPEGGIATES", C_MUTE);
         bw_kcell(&kc[0], "MODE", s->arp_mode, BW_NARP_MODE - 1, bw_arp_mode_names[s->arp_mode]);
         bw_kcell(&kc[1], "RATE", s->arp_rate, 4, bw_arp_rate_names[s->arp_rate]);
         bw_kcell(&kc[2], "OCTAVES", s->arp_octaves, 3, 0);
@@ -1816,8 +1394,8 @@ static void bw_draw_page(uint32_t ms)
             bw_num(t, s->tempo);
             T(6, 52, &FONT_L, t, C_YEL);
             T(70, 64, &FONT_XS, "BPM", C_MUTE);
-            if (bw_kit(&bw_art_weather[0], bw_weather_icon(), 140, 56, 2))
-                T(176, 66, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_TXT);
+            bw_vector_weather(bw_weather_icon(), 140, 56, 2);
+            T(176, 66, &FONT_XS, bw_weather_names[bw_weather(&bw)], C_TXT);
             char u[32] = "AUDIO LOAD ";
             bw_num(t, (int)plat_cpu_pct());
             bw_cat(u, sizeof u, t);
@@ -1846,8 +1424,7 @@ static void bw_draw_page(uint32_t ms)
             for (unsigned i = 0; i < 4; i++)
             {
                 int32_t x = 8 + (int32_t)i * 58;
-                R(x, 64, 50, 60, i == bw_ui.slot_pick ? C_YEL : C_BAR);
-                R(x + 2, 66, 46, 56, i == bw_pref.slot ? C_PANEL : C_BG);
+                bw_vector_box(x,64,50,60,i == bw_ui.slot_pick ? C_YEL:C_BAR);
                 bw_num(t, (int)i + 1);
                 T(x + 19, 82, &FONT_B, t, i == bw_pref.slot ? C_YEL : C_MUTE);
             }
@@ -1890,7 +1467,6 @@ static void bw_draw(void)
         bw_ui.popup_until = ms + 3500u;
         bw_ui.dirty = 1;
     }
-    int popup = (int32_t)(bw_ui.popup_until - ms) > 0 && bw_fish_state(&bw, bw_ui.track) != BW_FISH_FIGHT;
     static uint8_t was_biting[4];
     int any_bite = 0;
     for (unsigned i = 0; i < 4; i++)
@@ -1901,19 +1477,6 @@ static void bw_draw(void)
         was_biting[i] = (uint8_t)b;
         any_bite |= b;
     }
-    if (bw_fish_on_seq != bw_ui.fish_on_seen)
-    {
-        bw_ui.fish_on_seen = bw_fish_on_seq;
-        bw_ui.fish_on_until = ms + BW_STRIKE_MS;
-    }
-    int fish_on = !bw.river.enabled && (int32_t)(bw_ui.fish_on_until - ms) > 0;
-    uint32_t strike_t = BW_STRIKE_MS - (bw_ui.fish_on_until - ms);
-    /* the last 350 ms: a wave rises from the bottom; the page beneath it, the strike above */
-    int32_t wave = fish_on && strike_t > BW_STRIKE_MS - 350u
-                       ? 240 - (int32_t)((strike_t - (BW_STRIKE_MS - 350u)) * 200u / 350u)
-                       : 241;
-    if (fish_on)
-        bw_ui.draw = 1; /* every frame while it plays */
     right[0] = 0;
     bw_text_copy(right, bw.playing ? "PLAYING" : "STOPPED", sizeof right);
     for (unsigned band = 0; band < 5; band++)
@@ -1928,23 +1491,7 @@ static void bw_draw(void)
                                                 : bw_color(bw_ui.track),
                       right);
         else
-        {
-            if (!fish_on || wave <= 240)
-            {
-                bw_draw_page(ms);
-                (void)popup; /* catches show in the header now, never over the page */
-            }
-            if (fish_on)
-            {
-                bw_ymax = wave < 240 ? wave : 240;
-                if (wave < 240)
-                    R(0, 48, 240, 192, C_BG); /* (clipped to above the wave: the strike's own background) */
-                bw_draw_fish_on(strike_t);
-                bw_ymax = 240;
-                if (wave < 240)
-                    bw_draw_wave(wave, strike_t);
-            }
-        }
+            bw_draw_page(ms);
         lcd_blit(0, band * 48, 240, 48, cv_px);
     }
     /* lights: PLAY, SAVE while unsaved, REC at a bite, ARP while on; the white keys walk this fish's steps; held
@@ -1964,17 +1511,17 @@ static void bw_draw(void)
 /* the boot screen: the river at night, the wordmark, the line */
 void app_splash(void)
 {
+    bw_vector_opacity=bw_vector_trace=bw_vector_sky=256;
     for (unsigned band = 0; band < 5; band++)
     {
         bw_oy = (int32_t)band * 48;
         cv_begin(240, 48, C_BG);
-        if (!bw_kit(&bw_art_river[0], 1, 0, 0, 1))
-            R(0, 0, 240, 240, C_BG);
-        R(0, 70, 240, 92, RGB(6, 14, 12));
-        if (!bw_kit(&bw_art_logo[0], 0, 54, 82, 1))
-            T(60, 96, &FONT_M, APP_NAME, C_TXT);
-        TS(64, 132, &FONT_XS, "GENERATIVE FISH MUSIC", C_YEL);
-        TS(96, 150, &FONT_XS, APP_VERSION, C_MUTE);
+        bw_vector_river(0, 0, 0);
+        R(20, 75, 200, 81, C_BG);
+        L(25, 76, 215, 76, C_BAR);
+        T(40, 90, &FONT_M, APP_NAME, C_TXT);
+        T(56, 125, &FONT_XS, "A RIVER IN SOUND", C_MUTE);
+        TR(213, 151, &FONT_T, APP_VERSION, C_MUTE);
         lcd_blit(0, band * 48, 240, 48, cv_px);
     }
 }
@@ -1990,7 +1537,7 @@ void app_input_only(void)
 void app_frame(void)
 {
     bw_input();
-    if (bw_ui.draw || plat_ms() - bw_ui.last_draw >= 80)
+    if (bw_ui.draw || plat_ms() - bw_ui.last_draw >= 40)
         bw_draw();
     if (ann_on() && ann_where())
         ann_say(bw_pages[bw_ui.page], 0, ANN_NOW);

@@ -1,190 +1,130 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Included by app.c: the actual firmware's band renderer, not an external visualizer. */
-static uint16_t bw_river_blend(uint16_t a, uint16_t b, unsigned amount)
-{
-    unsigned inv = 32u - amount;
-    return (uint16_t)(((((a >> 11) * inv + (b >> 11) * amount) >> 5) << 11) |
-        (((((a >> 5) & 63u) * inv + ((b >> 5) & 63u) * amount) >> 5) << 5) |
-        (((a & 31u) * inv + (b & 31u) * amount) >> 5));
-}
-
+/* A single composition: persistent water curves, traced foreground, eased ink and consistent margins. */
 static void bw_draw_river_scene(uint32_t now, int setup)
 {
-    const bw_river_state *r = &bw.river;
-    unsigned phase = r->phase, line = r->line;
-    uint32_t t = r->ms, age = t - r->phase_at;
-    float bloom = phase == BW_RIVER_STRIKE || phase == BW_RIVER_REVEAL ? 0.0f : r->bloom;
-    if (phase == BW_RIVER_FIGHT)
-        bloom *= 0.4f; /* the line, fish movement and tension must remain legible */
-    const bw_sheet *sh = &bw_art_river[0];
-    unsigned weather = bw_weather(&bw), frame = weather == BW_WEATHER_STORM ? 2u : 1u;
-    if (weather == BW_WEATHER_DAY || weather == BW_WEATHER_DUSK)
-        frame = 0;
-    uint16_t palette[16];
-    for (unsigned i = 0; i < 16; i++)
+    const bw_river_state *r=&bw.river;
+    unsigned phase=r->phase,line=r->line;
+    uint32_t t=r->ms,age=t-r->phase_at;
+    static float focus_x=120,focus_y=151,reveal_x=120,reveal_y=151;
+    static unsigned last_phase;
+    if (!bw_oy && last_phase!=phase)
     {
-        uint16_t original = sh->px ? sh->pal[i] : C_BG;
-        unsigned lum = ((original >> 11) + (original & 31u) + ((original >> 5) & 63u)) / 4u;
-        uint16_t tint = r->world == BW_WORLD_UNDERTOW ? RGB(lum * 5, lum * 2, lum * 8) :
-                        r->world == BW_WORLD_FIREFLIES ? RGB(lum * 3, lum * 7, lum * 5) :
-                        RGB(lum * 5, lum * 3, lum * 8);
-        /* Reflections become luminous, while the silhouettes preserve depth and place. */
-        palette[i] = bw_river_blend(original, tint, (unsigned)(bloom * 28.0f));
+        reveal_x=focus_x;reveal_y=focus_y;last_phase=phase;
     }
-    for (int32_t y = bw_oy; y < bw_oy + 48; y++)
+    float enter=bw_vector_ease((float)age/700.0f);
+    float leave=phase==BW_RIVER_REVEAL ? bw_vector_ease((8000.0f-(float)age)/1200.0f):1;
+    float reveal=phase==BW_RIVER_REVEAL ? enter*leave:0;
+    float strike=phase==BW_RIVER_STRIKE ? 1:phase==BW_RIVER_FIGHT ? 1-enter:0;
+    float focus=phase==BW_RIVER_STRIKE ? 1-enter*0.46f:phase==BW_RIVER_FIGHT ? 0.54f:1;
+    if(phase==BW_RIVER_REVEAL) focus=(0.54f-enter*0.41f)*leave+1-leave;
+    float sky=phase==BW_RIVER_STRIKE ? 1-enter:phase==BW_RIVER_FIGHT ? 0:
+        phase==BW_RIVER_REVEAL ? enter:1;
+    bw_vector_sky=(unsigned)(sky*256);
+    bw_vector_opacity=(unsigned)(focus*256);
+    bw_vector_trace=256;
+    bw_vector_river(t,r->bloom,r->world);
+    bw_vector_opacity=256;
+    int st=bw_fish_state(&bw,line),bx=120,by=151+(int)(fm_sinf((float)t*0.0014f)*1.5f);
+    if(st!=BW_FISH_IDLE && phase<BW_RIVER_STRIKE)
     {
-        if (!sh->px)
-        {
-            R(0, y, 240, 1, C_BG);
-            continue;
-        }
-        float depth = y > 100 ? (float)(y - 100) / 140.0f : 0;
-        int32_t warp = (int32_t)(bloom * depth * 13.0f *
-            fm_sinf((float)y * 0.10f + (float)t * 0.00035f));
-        const uint8_t *px = sh->px + frame * 240u * 120u;
-        for (int32_t x = 0; x < 240; x++)
-        {
-            int32_t sx = clamp(x + warp, 0, 239);
-            unsigned n = (unsigned)y * 240u + (unsigned)sx, b = px[n / 2u];
-            P(x, y, palette[n & 1u ? b >> 4 : b & 15u]);
-        }
+        float approach=phase==BW_RIVER_APPROACH ? bw_vector_ease((float)age/12000):0;
+        bw_vector_opacity=170;
+        bw_vector_oval(bx,by+3,8+(int)(approach*13),2+(int)(approach*3),C_MUTE);
+        bw_vector_opacity=256;
+        V(bx,by-4,bx,by+3,st==BW_FISH_BITE ? C_YEL:C_TXT);
     }
-    /* Submerged contour ribbons: each layer emerges as the same musical bloom opens its mix and FM depth.
-     * Slow refraction and parallax retain the river's horizon. No flashing or per-note colour toggles. */
-    unsigned layers = (unsigned)(bloom * 7.0f);
-    static int16_t stream_x[7][49], stream_y[7][49];
-    for (unsigned j = 0; j < layers; j++)
+    if(phase==BW_RIVER_STRIKE || phase==BW_RIVER_FIGHT)
     {
-        float reveal = fm_clampf(bloom * 7.0f - (float)j, 0, 1);
-        uint16_t glow = bw_river_blend(RGB(14, 30, 37),
-            j & 1u ? RGB(130, 78, 202) : RGB(57, 183, 165), (unsigned)(reveal * 28));
-        int32_t prev_x = 0, prev_y = 0;
-        for (unsigned q = 0; q <= 48; q++)
+        float tension=bw.track[line].manual ? bw.fight_tension[line]:r->pressure*100;
+        float motion=phase==BW_RIVER_FIGHT ? enter:0;
+        int running=bw.track[line].manual ? bw.fight_run[line]>0:r->pressure>0.55f;
+        float x=120+fm_sinf((float)t*0.0017f)*motion*(8+r->pressure*28),y=151+r->pressure*motion*12;
+        if(!bw_oy) {focus_x=x;focus_y=y;}
+        bw_vector_opacity=(unsigned)((phase==BW_RIVER_STRIKE ? enter:1)*256);
+        bw_vector_trace=(unsigned)((phase==BW_RIVER_STRIKE ? enter:1)*256);
+        bw_vector_rod((int)x,(int)y,tension,C_YEL);
+        bw_vector_trace=256;
+        bw_vector_oval((int)x,(int)y+3,12,3,C_MUTE);
+        bw_vector_opacity=256;
+        float portrait=bw.fish_rare[line] ? strike:0;
+        if(portrait>0.01f)
         {
-            if (bw_oy == 0) /* calculate once per frame, reuse across the five LCD bands */
-            {
-                float a = (float)q * FM_TWO_PI / 48.0f;
-                float drift = (float)t * 0.00012f + (float)j * 0.65f;
-                float rad = 18.0f + j * 11.0f + 3.0f * fm_sinf(a * 2.0f + drift);
-                stream_x[j][q] = (int16_t)(120 + (int32_t)(fm_cosf(a) * rad * 1.5f));
-                stream_y[j][q] = (int16_t)(155 + (int32_t)(fm_sinf(a) * rad * 0.48f +
-                    4.0f * fm_sinf(a * 2.0f - drift)));
-            }
-            int32_t x = stream_x[j][q], y = stream_y[j][q];
-            if (q)
-            {
-                L(prev_x, prev_y + 3, x, y + 3, bw_river_blend(C_BG, glow, 6));
-                L(prev_x, prev_y + 2, x, y + 2, bw_river_blend(C_BG, glow, 12));
-                L(prev_x, prev_y + 1, x, y + 1, bw_river_blend(C_BG, glow, 20));
-                L(prev_x, prev_y, x, y, glow);
-            }
-            prev_x = x;
-            prev_y = y;
+            bw_vector_opacity=(unsigned)(portrait*(phase==BW_RIVER_STRIKE ? enter:1)*256);
+            bw_vector_trace=(unsigned)((phase==BW_RIVER_STRIKE ? enter:1)*256);
+            bw_vector_fisherman(22,26,77);
+            bw_vector_trace=bw_vector_opacity=256;
         }
-    }
-    if (bloom > 0.3f)
-        for (unsigned j = 0; j < (unsigned)(bloom * 24); j++)
+        int tx=24+(int)(portrait*90),ty=24+(int)(portrait*14);
+        T(tx,ty,&FONT_M,"FISH ON",bw_vector_text_color(C_TXT,phase==BW_RIVER_STRIKE ? enter:1));
+        if(phase==BW_RIVER_FIGHT)
         {
-            int32_t x = 20 + (int32_t)(j * 73u % 200u) +
-                (int32_t)(fm_sinf((float)t * 0.00021f + j) * bloom * 10.0f);
-            int32_t y = 109 + (int32_t)(j * 19u % 100u);
-            P(x, y, j & 1 ? RGB(96, 117, 136) : RGB(60, 140, 124));
+            T(24,54,&FONT_XS,running ? "LET IT RUN":"REEL GENTLY",bw_vector_text_color(C_MUTE,enter));
+            bw_vector_opacity=(unsigned)(enter*256);
+            V(24,216,216,216,C_BAR);
+            for(unsigned j=0;j<5;j++) V(24+(int)j*48,213,24+(int)j*48,219,C_MUTE);
+            int at=24+(int)(192*fm_clampf(tension/100,0,1));
+            bw_vector_oval(at,216,3,3,tension>78 ? C_PINK:C_YEL);
+            T(24,227,&FONT_T,"TENSION",bw_vector_text_color(C_MUTE,enter));
+            TR(216,227,&FONT_T,"SELECT / K1",bw_vector_text_color(C_MUTE,enter));
         }
-    int st = bw_fish_state(&bw, line);
-    int32_t bx = 143, by = 158 + (int32_t)(fm_sinf((float)t * 0.0014f) * 2.0f);
-    if (st != BW_FISH_IDLE && phase < BW_RIVER_STRIKE)
-    {
-        if (phase == BW_RIVER_APPROACH)
-        {
-            float approach = fm_clampf((float)age / 12000.0f, 0, 1);
-            int32_t radius = 25 - (int32_t)(approach * 18);
-            L(bx - radius * 2, by + 5, bx + radius * 2, by + 5, RGB(76, 144, 140));
-            L(bx - radius, by + 8, bx + radius, by + 8, RGB(60, 90, 124));
-        }
-        if (st == BW_FISH_BITE)
-            by += 5;
-        L(bx - 5, by + 3, bx + 5, by + 3, C_MUTE);
-        R(bx, by - 3, 2, 4, C_TXT);
-        R(bx, by + 1, 2, 3, C_PINK);
-    }
-    if (phase == BW_RIVER_STRIKE)
-    {
-        /* The accumulated refraction resolves into one precise point, then the taut line. */
-        unsigned radius = age < 1000 ? 36u - age * 30u / 1000u : 6u;
-        for (unsigned j = 0; j < 3; j++)
-        {
-            int32_t rad = (int32_t)radius + (int32_t)j * 9;
-            L(bx - rad, by + (int32_t)j * 4, bx + rad, by + (int32_t)j * 4, j ? C_MUTE : C_TXT);
-        }
-        L(205, 229, 180, 74, C_TXT);
-        L(180, 74, bx, by, C_YEL);
-        TS(66, 38, &FONT_M, "FISH ON!", C_TXT);
+        bw_vector_opacity=256;
         return;
     }
-    if (phase == BW_RIVER_FIGHT)
+    if(phase==BW_RIVER_REVEAL)
     {
-        float tension = bw.track[line].manual ? bw.fight_tension[line] : r->pressure * 100;
-        int running = bw.track[line].manual ? bw.fight_run[line] > 0 : r->pressure > 0.55f;
-        int32_t fx = 120 + (int32_t)(fm_sinf((float)t * (running ? 0.004f : 0.001f)) * (running ? 38 : 12));
-        int32_t fy = 156 + (int32_t)(r->pressure * 15);
-        L(204, 228, 177, 70 + (int32_t)(tension * 0.2f), C_TXT);
-        L(177, 70 + (int32_t)(tension * 0.2f), fx, fy, C_YEL);
-        L(fx - 18, fy + 3, fx + 18, fy + 3, C_TXT);
-        L(fx - 10, fy + 7, fx + 10, fy + 7, C_MUTE);
-        TS(12, 16, &FONT_B, running ? "LET IT RUN" : "REEL GENTLY", C_TXT);
-        R(16, 218, 208, 4, C_BAR);
-        R(16, 218, (int32_t)(208.0f * fm_clampf(tension / 100.0f, 0, 1)), 4,
-            tension > 78 ? C_PINK : C_YEL);
-        T(16, 228, &FONT_T, "TENSION                 SELECT / K1", C_TXT);
-        return;
-    }
-    if (phase == BW_RIVER_REVEAL)
-    {
-        const bw_event *ev = &bw.event;
-        R(12, 74, 216, 123, RGB(6, 14, 20));
-        if (ev->result == BW_FIGHT_LANDED)
+        const bw_event *ev=&bw.event;
+        if(enter<1)
         {
-            bw_draw_fish_at(70, 89, ev->species, 10, 0, 2);
-            TR(221, 147, &FONT_B, bw_species_names[ev->species], ev->rare ? C_GOLD : C_TXT);
-            char length[24] = "", weight[24] = "";
-            bw_length_text(length, ev->mm);
-            bw_weight_text(weight, ev->g);
-            T(22, 169, &FONT_XS, length, C_MUTE);
-            TR(218, 169, &FONT_XS, weight, C_MUTE);
-            TS(34, 203, &FONT_XS, "THE RIVER REMEMBERS", C_TXT);
+            bw_vector_opacity=(unsigned)((1-enter)*256);
+            bw_vector_rod((int)reveal_x,(int)reveal_y,r->pressure*100,C_YEL);
+        }
+        bw_vector_opacity=(unsigned)(reveal*256);
+        if(ev->result==BW_FIGHT_LANDED)
+        {
+            float size=0.7f+enter*1.7f,x=reveal_x+(120-reveal_x)*enter,y=reveal_y+(121-reveal_y)*enter;
+            bw_vector_fish((int)(x-24*size),(int)(y-12*size),ev->species,10,size,ev->rare ? C_YEL:C_TXT);
+            float labels=bw_vector_ease(((float)age-450)/850)*leave;
+            T(24,24,&FONT_XS,ev->rare ? "RARE ENCOUNTER":"ENCOUNTER",bw_vector_text_color(C_MUTE,labels));
+            int tx=(240-text_w(&FONT_XS,bw_species_names[ev->species]))/2;
+            T(tx,161,&FONT_XS,bw_species_names[ev->species],bw_vector_text_color(C_TXT,labels));
+            bw_vector_opacity=(unsigned)(labels*256);
+            V(24,184,216,184,C_BAR);
+            char length[24]="",weight[24]="";
+            bw_length_text(length,ev->mm);bw_weight_text(weight,ev->g);
+            T(24,196,&FONT_B,length,bw_vector_text_color(C_TXT,labels));
+            TR(216,196,&FONT_B,weight,bw_vector_text_color(C_MUTE,labels));
         }
         else
         {
-            TS(26, 108, &FONT_B, ev->result == BW_FIGHT_SNAPPED ? "THE LINE GAVE WAY" : "BACK INTO THE DEEP", C_TXT);
-            T(32, 146, &FONT_XS, "THE WATER SETTLES", C_MUTE);
+            bw_vector_oval((int)reveal_x,(int)reveal_y,12+(int)(enter*38),3+(int)(enter*8),C_MUTE);
+            T(24,24,&FONT_XS,"BACK INTO THE DEEP",bw_vector_text_color(C_MUTE,reveal));
+            T(24,196,&FONT_XS,ev->result==BW_FIGHT_SNAPPED ? "THE LINE GAVE WAY":"THE WATER SETTLES",bw_vector_text_color(C_TXT,reveal));
         }
+        bw_vector_opacity=bw_vector_trace=256;
         return;
     }
-    /* Controls appear when invited; idle returns to an unobstructed river. */
-    if (!bw.playing || now - bw_ui.last_input < 4500u || setup || st == BW_FISH_BITE)
+    float controls=!bw.playing || setup || st==BW_FISH_BITE ? 1:
+        1-bw_vector_ease(((float)(now-bw_ui.last_input)-2800)/1700);
+    if(controls>0.01f)
     {
-        TS(10, 12, &FONT_XS, bw_world_names[r->world], C_TXT);
-        TR(230, 12, &FONT_XS, bw.playing ? "LISTENING" : "PLAY TO ENTER", C_TXT);
-        if (st == BW_FISH_BITE)
-            TS(63, 199, &FONT_B, "BITE - REC", C_YEL);
-        else if (setup)
+        T(24,24,&FONT_XS,bw_world_names[r->world],bw_vector_text_color(C_TXT,controls));
+        TR(216,24,&FONT_T,bw.playing ? "RIVER / 01":"PLAY TO ENTER",bw_vector_text_color(C_MUTE,controls));
+        if(st==BW_FISH_BITE) T(24,196,&FONT_XS,"BITE / PRESS REC",C_YEL);
+        else if(setup)
         {
-            bw_knob_cell kc[4];
-            const bw_track *tr = &bw.track[bw_ui.track];
-            TS(10, 176, &FONT_XS, "REC: PLACE / LIFT LINE", C_TXT);
-            bw_kcell(&kc[0], "MIN S", tr->wait_min, 600, 0);
-            bw_kcell(&kc[1], "MAX S", tr->wait_max, 600, 0);
-            bw_kcell(&kc[2], "MODE", tr->manual, 1, tr->manual ? "FISH" : "LISTEN");
-            bw_kcell(&kc[3], "BAIT", tr->bait, BW_NBAIT - 1, bw_bait_names[tr->bait]);
-            bw_knob_bar(kc, C_YEL);
+            bw_knob_cell kc[4];const bw_track *tr=&bw.track[bw_ui.track];
+            T(24,190,&FONT_T,"REC / PLACE OR LIFT",C_MUTE);
+            bw_kcell(&kc[0],"MIN S",tr->wait_min,600,0);bw_kcell(&kc[1],"MAX S",tr->wait_max,600,0);
+            bw_kcell(&kc[2],"MODE",tr->manual,1,tr->manual ? "FISH":"LISTEN");
+            bw_kcell(&kc[3],"BAIT",tr->bait,BW_NBAIT-1,bw_bait_names[tr->bait]);
+            bw_knob_bar(kc,C_YEL);
         }
         else
         {
-            T(10, 213, &FONT_T, "K1 CURRENT  K2 BED  K3 LIGHT  K4 DISTANCE", C_TXT);
-            if ((int32_t)(bw_ui.message_until - now) > 0)
-                T(10, 227, &FONT_T, bw_ui.message, C_YEL);
-            else
-                T(10, 227, &FONT_T, "PRESET WORLD  SEQ LINE  REC PLACE / LIFT", C_MUTE);
+            T(24,217,&FONT_T,"CURRENT / BED / LIGHT / DISTANCE",bw_vector_text_color(C_MUTE,controls));
+            T(24,229,&FONT_T,(int32_t)(bw_ui.message_until-now)>0 ? bw_ui.message:
+                "PRESET / WORLD     SEQ / LINE",bw_vector_text_color(C_MUTE,controls));
         }
     }
+    bw_vector_opacity=bw_vector_trace=256;
 }

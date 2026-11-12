@@ -10,9 +10,10 @@ line lifted. One line begins in the water. **REC** lifts it; REC places it again
 **K1–K4** adjust the layers' levels. **PRESET**, while stopped, explicitly loads **DUSK**, **UNDERTOW**, or
 **FIREFLIES** into the current session's four patches; saved user patches are left alone. SAVE retains your work.
 
-The river is intentionally unobstructed after the controls fade. Its reflections refract and submerged contours
-emerge with the same slow growth that opens the sound. At a strike, those layers resolve into sharp water and
-line detail. The fight stays readable. After the reveal, the image dissolves back to the river over thirty seconds.
+The river is drawn entirely with lines on an open canvas. New water detail fades between existing curves as
+the sound grows. At the strike, the water settles and the rod draws in; rare fish also bring a traced, original
+Jeremy-inspired portrait. The fight uses the same scene and focal point. A caught fish rises from that point
+while the rod recedes, its measurements fade in, and the scene returns to just the river. No sprite cards appear.
 
 ## Fishing
 

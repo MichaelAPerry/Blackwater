@@ -2,9 +2,10 @@
 
 Approved direction: minimal river → sound and psychedelic depth grow together → sharp clarity at the strike →
 tense encounter → reveal → dissolve back to just the river. This is an implementation for listening/play review,
-not a claim of finished musical quality. The existing river art is reused, with real firmware palette transforms,
-water refraction, luminous submerged contours, parallax and a restrained strike/fight composition. New landscape
-illustrations have not been commissioned or generated.
+not a claim of finished musical or visual quality. All firmware artwork is now procedural line drawing. The
+water, rod, reel, fish, original Jeremy-inspired portrait, icons and editor graphics share the same stroke
+system. See [Line art](LINE_ART.md) for the design and transition rules. Raster sources remain archived but are
+not generated or linked into the firmware.
 
 ## Listen and watch
 
@@ -12,15 +13,19 @@ illustrations have not been commissioned or generated.
 cd /workspace/Blackwater
 . build/venv/bin/activate
 ./build.sh --host
-python3 tools/render_river_review.py --video
+python3 tools/render_river_review.py --video --portrait --out build/flow-review
 ```
 
-The tool drives fm1-base's actual host application and produces:
+The tool drives fm1-base's actual host application at a 25 fps capture rate and produces:
 
-- `build/river-review/{dusk,undertow,fireflies}/{name}.wav`: three thirty-second sound studies, with the line lifted.
-- `build/river-review/river-encounter.mp4`: 110 seconds of actual LCD frames and rendered audio. Only the wait is
+- `build/flow-review/{dusk,undertow,fireflies}/{name}.wav`: three thirty-second sound studies, with the line lifted.
+- `build/flow-review/river-encounter.mp4`: 110 seconds of actual LCD frames and rendered audio. Only the wait is
   shortened to thirty seconds via the ordinary line controls. Approach (12 s), strike (1.6 s), unattended fight
   (16 s), reveal (8 s) and return (30 s) retain their normal timing. A rare fish is not forced for this capture.
+
+- `build/flow-review/rare-strike.mp4` and `portrait.png`: a naturally occurring rare encounter, recorded after
+  627.2 seconds of simulated play with normal thirty-second waits. This short clip includes the speech, portrait
+  trace and handoff into the fight; no fish is forced by a test-only command.
 
 The video is a local recording, not an interactive replacement emulator. Actual-package browser evaluation uses
 the existing fm1-emu workflow once the required device compiler/SDK can be downloaded. No site has been deployed.
@@ -61,6 +66,5 @@ Node-Wasm tests, Chromium interaction, and physical-device checks remain outstan
 `pkgman.jieliapp.com` and `gitee.com` return proxy 403; the alternative fm1-base Web build also fails because
 `emcc` is absent. Earlier package metrics and browser evidence apply to the old build only.
 
-The first decision after listening is which sound world and degree of visual growth feel right. The next art pass
-can then target specific missing depth/foreground/reveal assets. Casting, additional locations, a larger synthesis
+The first decision after listening is which sound world and degree of visual growth feel right. The next visual review should judge the movement and transitions in the recording, as well as still frames. Casting, additional locations, a larger synthesis
 replacement and broad content expansion remain subsequent review decisions.

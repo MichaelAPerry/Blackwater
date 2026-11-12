@@ -6,7 +6,7 @@ usb_product = "BLACKWATER FM-1"
 o2 = ["bw_engine.c"]   # the engine (and its species, effects): -O2, its own unit, as MPFM1's DSP
 words = "words.tsv"
 # the "fish on" clip, if firmware/assets/clip/fish_on.wav (or $BW_CLIP_WAV) is there: tools/make_clip.py
-gen = ["../tools/make_clip.py {gen}/bw_clip.h", "../tools/import_art.py {gen}/bw_art.h"]
+gen = ["../tools/make_clip.py {gen}/bw_clip.h"]
 ble = false
 usb_audio_in = true
 usb_audio_out = true

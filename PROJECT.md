@@ -1,5 +1,23 @@
 # BLACKWATER project record
 
+## Line-art direction and flow revision, approved 2026-11-12
+
+The user requested a complete firmware art change: OP-1-like line drawing for the river, water, rod, fish,
+Jeremy-inspired portrait and all other surfaces, replacing sprites. Subsequent feedback asked for a slicker,
+more coherent result with better flow between elements. This supersedes the earlier pixel-art presentation.
+
+The firmware now draws original geometry directly into the platform canvas. Raster art generation and sprite
+rendering have been removed from the application; original source images remain archived. A fixed sixteen-curve
+water family fades detail in without repositioning existing curves. Subpixel antialiasing, eased ink/trace,
+consistent 24-pixel scene margins, a shared focal point and a 25 fps target support continuous transitions.
+The rod/portrait draw in; the fish rises from the line while the rod recedes; labels arrive afterward and fade
+back to water, without a cutout catch card. The recovery no longer grows a second visual/musical bloom.
+
+The portrait remains an original line interpretation, displayed on rare strikes alongside the supplied speech.
+Tests cover actual panel-driven rare encounters, visual density/return, host controls, audio and v0.3 persistence.
+Device/browser/hardware performance remains unverified under the existing toolchain download blocker. No
+publication or deployment has been performed. Listening and visual approval remain the owner's decision.
+
 ## River redesign approved 2026-11-12
 
 The user approved the salvage/redesign plan and requested deeper, psychedelic art: a minimal river grows with
