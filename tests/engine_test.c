@@ -384,6 +384,27 @@ int main(void)
     bw_transport(&e, 1);
     render(300, 0);
     CHECK(first == lr[100]);
+    /* Editing the FM ratio / fixed Hz updates a held note without retriggering its envelope. */
+    fresh();
+    bw_live_note(&e,0,60,1,110);
+    render(1,0);
+    bw_voice *held=0;
+    for(i=0;i<BW_VOICES;i++) if(e.voice[i].active) {held=&e.voice[i];break;}
+    CHECK(held != 0);
+    if(held)
+    {
+        float increment=held->inc[0];
+        uint32_t age=held->age;
+        e.track[0].patch.op[0].ratio*=2;
+        render(1,0);
+        CHECK(fabsf(held->inc[0]/increment-2.0f)<0.001f);
+        CHECK(held->age==age);
+        e.track[0].patch.op[0].fixed=1;
+        e.track[0].patch.op[0].hz=320;
+        render(1,0);
+        CHECK(fabsf(held->inc[0]-320.0f/BW_RATE)<0.000001f);
+        CHECK(held->age==age);
+    }
     printf(fails ? "engine: %d FAILED\n" : "engine: all passed\n", fails);
     return fails != 0;
 }

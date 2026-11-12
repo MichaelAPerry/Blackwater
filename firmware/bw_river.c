@@ -161,6 +161,23 @@ static void bw_river_control(bw_engine *e)
         ? (e->track[k].manual ? e->fight_tension[k] * 0.01f :
            0.45f + 0.3f * bw_sin((float)(r->ms - r->phase_at) / 6000.0f)) : 0;
     r->pressure += (pressure - r->pressure) * 0.025f;
+    /* Shared audiovisual weather and colour. Notes, FM motion and measured layer output steer colour;
+     * the wind also opens the noise filter. No animation RNG enters encounter selection. */
+    float energy=0;
+    for(unsigned layer=0;layer<4;layer++)
+    {
+        energy+=e->meter[layer];
+        float tone=(float)(e->last_note[layer]%12u)/12.0f+e->lfo_value[layer]*0.12f+
+            e->mod_scale[layer]*0.05f+(float)e->track[layer].patch.op[0].feedback*0.001f;
+        r->color_voice[layer]+=(tone-r->color_voice[layer])*0.004f;
+    }
+    r->energy+=(fm_clampf(energy*1.5f,0,1)-r->energy)*0.015f;
+    unsigned weather=bw_weather(e);
+    float wind=(weather==BW_WEATHER_STORM ? 0.55f:weather==BW_WEATHER_NIGHT ? 0.08f:0.18f)+
+        (0.5f+0.5f*bw_sin((float)r->ms/47000.0f))*0.20f;
+    r->wind+=(wind-r->wind)*0.003f;
+    r->color_phase+=0.00014f+r->energy*0.00030f+r->wind*0.00008f;
+    if(r->color_phase>=1) r->color_phase-=1;
     if (e->song.progression && r->ms % 48000u == 0)
         e->chord = (uint8_t)((e->chord + 1) % bw_progressions[e->song.progression].n);
     for (unsigned layer = 0; layer < 4; layer++)
@@ -201,8 +218,8 @@ static void bw_river_texture(bw_engine *e, float *l, float *right)
 {
     bw_river_state *r = &e->river;
     float x = (float)(bw_rand(&r->noise) >> 8) / 8388608.0f - 1.0f;
-    r->texture_l += (x - r->texture_l) * 0.018f;
-    r->texture_r += (-x - r->texture_r) * 0.011f;
+    r->texture_l += (x - r->texture_l) * (0.012f+r->wind*0.018f);
+    r->texture_r += (-x - r->texture_r) * (0.009f+r->wind*0.012f);
     r->body_l += (r->texture_l - r->body_l) * 0.001f;
     r->body_r += (r->texture_r - r->body_r) * 0.0013f;
     float level = e->playing ? (r->world == BW_WORLD_UNDERTOW ? 0.15f : 0.055f) : 0;

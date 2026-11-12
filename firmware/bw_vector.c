@@ -117,14 +117,22 @@ static void bw_vector_fisherman(int x, int y, int size)
 
 static void bw_vector_fish(int x, int y, unsigned sp, unsigned frame, float scale, uint16_t c)
 {
+    sp%=BW_SPECIES;
     unsigned kind = sp % 4u;
-    int h = kind == BW_BLUEGILL ? 9 : kind == BW_CATFISH ? 5 : 6;
+    static const int8_t depth[8]={9,6,5,5,10,7,6,4};
+    int h=depth[sp];
     int tail = (int)(frame % 3u) - 1;
     /* Coordinates retain the former 48×24 bounding box; the drawing itself is all curves/strokes. */
     bw_vector_curve(x+8*scale,y+12*scale,x+25*scale,y+(12-h*2)*scale,x+44*scale,y+11*scale,c);
     bw_vector_curve(x+44*scale,y+11*scale,x+27*scale,y+(12+h*2)*scale,x+8*scale,y+12*scale,c);
     V(x+8*scale,y+12*scale,x+2*scale,y+(4+tail)*scale,c);
-    V(x+2*scale,y+(4+tail)*scale,x+2*scale,y+(20+tail)*scale,c);
+    if(sp==BW_FLATHEAD)
+        V(x+2*scale,y+(4+tail)*scale,x+2*scale,y+(20+tail)*scale,c);
+    else
+    {
+        V(x+2*scale,y+(4+tail)*scale,x+5*scale,y+12*scale,c);
+        V(x+5*scale,y+12*scale,x+2*scale,y+(20+tail)*scale,c);
+    }
     V(x+2*scale,y+(20+tail)*scale,x+8*scale,y+12*scale,c);
     bw_vector_curve(x+33*scale,y+7*scale,x+29*scale,y+12*scale,x+34*scale,y+17*scale,C_MUTE);
     V(x+20*scale,y+(12-h)*scale,x+27*scale,y+(6-h)*scale,c);
@@ -132,15 +140,42 @@ static void bw_vector_fish(int x, int y, unsigned sp, unsigned frame, float scal
     V(x+22*scale,y+13*scale,x+18*scale,y+17*scale,c);
     V(x+18*scale,y+17*scale,x+27*scale,y+14*scale,c);
     bw_vector_oval(x+38*scale,y+10*scale,scale,scale,c);
+    if (sp == BW_PEACOCK)
+    {
+        for(unsigned i=0;i<3;i++)
+            V(x+(15+(int)i*6)*scale,y+7*scale,x+(17+(int)i*6)*scale,y+17*scale,C_MUTE);
+        bw_vector_oval(x+11*scale,y+12*scale,2*scale,2*scale,c);
+    }
+    else if(sp==BW_CRAPPIE)
+    {
+        for(unsigned i=0;i<5;i++)
+        {
+            V(x+(17+(int)i*3)*scale,y+4*scale,x+(18+(int)i*3)*scale,y+(i%2 ? 0:2)*scale,c);
+            V(x+(14+(int)i*4)*scale,y+(i%2 ? 10:14)*scale,x+(15+(int)i*4)*scale,y+(i%2 ? 11:15)*scale,C_MUTE);
+        }
+    }
+    else if(sp==BW_BROOK)
+    {
+        for(unsigned i=0;i<4;i++)
+            bw_vector_curve(x+(13+(int)i*5)*scale,y+9*scale,x+(15+(int)i*5)*scale,y+5*scale,
+                x+(17+(int)i*5)*scale,y+10*scale,C_MUTE);
+    }
     if (kind == BW_CATFISH)
     {
         V(x+43*scale,y+12*scale,x+48*scale,y+16*scale,c);
         V(x+42*scale,y+13*scale,x+46*scale,y+19*scale,c);
+        if(sp==BW_FLATHEAD)
+        {
+            V(x+36*scale,y+15*scale,x+45*scale,y+14*scale,c);
+            V(x+43*scale,y+11*scale,x+48*scale,y+8*scale,c);
+        }
     }
-    else if (kind == BW_BASS)
+    else if (sp == BW_BASS)
         V(x+12*scale,y+12*scale,x+29*scale,y+12*scale,C_MUTE);
-    else if (kind == BW_TROUT)
+    else if (sp == BW_TROUT)
         for (unsigned i=0;i<4;i++) bw_vector_pixel((int)(x+(14+(int)i*5)*scale),(int)(y+(i%2 ? 10:13)*scale),c,256);
+    else if(sp==BW_BLUEGILL)
+        bw_vector_oval(x+32*scale,y+12*scale,2*scale,3*scale,C_MUTE);
 }
 
 static void bw_vector_rod(int tx, int ty, float tension, uint16_t line_color)
@@ -211,18 +246,75 @@ static void bw_vector_icon(unsigned kind, int x, int y, uint16_t c)
         }
 }
 
+static uint16_t bw_vector_music_color(unsigned layer,float distance,float saturation)
+{
+    static const uint16_t palette[3][3]={
+        {RGB(104,206,202),RGB(188,151,224),RGB(239,181,108)},
+        {RGB(112,156,229),RGB(93,201,181),RGB(203,139,201)},
+        {RGB(237,193,115),RGB(176,208,141),RGB(112,205,213)}};
+    const bw_river_state *r=&bw.river;
+    float phase=r->color_phase-distance*0.55f+r->color_voice[layer%4u]*0.24f;
+    while(phase<0) phase+=1;
+    while(phase>=1) phase-=1;
+    float stop=phase*3;
+    unsigned first=(unsigned)stop;
+    uint16_t color=bw_vector_mix(palette[r->world][first],palette[r->world][(first+1u)%3u],
+        (unsigned)(bw_vector_ease(stop-first)*256));
+    return bw_vector_mix(C_TXT,color,(unsigned)(fm_clampf(saturation,0,1)*256));
+}
+
+static void bw_vector_atmosphere(uint32_t t,float bloom,unsigned scene_ink)
+{
+    const bw_river_state *r=&bw.river;
+    unsigned sky_ink=scene_ink*bw_vector_sky/256u;
+    for(unsigned i=0;i<24;i++)
+    {
+        unsigned hash=i*2654435761u+0x19381u;
+        int x=25+(int)(hash%190u),y=42+(int)((hash>>10)%33u);
+        if(x>161 && x<198 && y<66) continue;
+        float visibility=i<8 ? 0.34f:bw_vector_ease(bloom-(float)(i%4)*0.08f)*0.72f;
+        float breathe=0.80f+0.20f*fm_sinf((float)t*0.00021f+(float)i);
+        bw_vector_opacity=(unsigned)((float)sky_ink*visibility*breathe);
+        uint16_t color=bw_vector_music_color(i%4u,(float)x/240,bloom*0.6f);
+        bw_vector_pixel(x,y,color,256);
+        if(i%6u==0)
+        {
+            V(x-2,y,x+2,y,color);V(x,y-2,x,y+2,color);
+        }
+        if(i%5u==1 && bloom>0.2f)
+        {
+            bw_vector_opacity=(unsigned)((float)sky_ink*bloom*0.16f);
+            V(x,y,x+9,y+4,C_MUTE);V(x+9,y+4,x+17,y-2,C_MUTE);
+        }
+    }
+    for(unsigned i=0;i<3;i++)
+    {
+        float gust=0.5f+0.5f*fm_sinf((float)t*0.00015f+i*1.9f);
+        int x=22+(int)i*68+(int)(gust*7),y=57+(int)i*7;
+        bw_vector_opacity=(unsigned)((float)sky_ink*r->wind*(0.18f+bloom*0.40f)*gust);
+        bw_vector_curve(x,y,x+16,y-5,x+32+(int)(r->wind*13),y-2,bw_vector_music_color(i,gust,bloom));
+    }
+    /* Sparse bank reeds bend with the same wind that opens the audio's air texture. */
+    bw_vector_opacity=(unsigned)((float)scene_ink*(0.16f+bloom*0.35f));
+    int lean=(int)(r->wind*7*fm_sinf((float)t*0.00036f));
+    bw_vector_curve(18,207,14+lean,188,27+lean,172,C_MUTE);
+    bw_vector_curve(19,202,29+lean,194,32+lean,187,C_MUTE);
+    bw_vector_curve(16,198,8+lean,190,9+lean,184,C_MUTE);
+    bw_vector_opacity=scene_ink;
+}
+
 static void bw_vector_river(uint32_t t, float bloom, unsigned world)
 {
-    uint16_t accent=world==BW_WORLD_UNDERTOW ? RGB(177,143,218):
-        world==BW_WORLD_FIREFLIES ? RGB(157,199,137):RGB(103,193,202);
+    (void)world;
     unsigned scene_ink=bw_vector_opacity;
+    bw_vector_atmosphere(t,bloom,scene_ink);
     bw_vector_opacity=scene_ink*bw_vector_sky/256u*3u/5u;
     bw_vector_oval(179,49,10,10,C_MUTE);
     V(24,83,216,83,C_MUTE);
     bw_vector_opacity=scene_ink;
     /* A fixed family of sixteen curves: new detail fades in between existing water lines.
      * Their positions never reflow when the sound crosses a complexity threshold. */
-    static uint16_t water[16][41];
+    static uint16_t water[16][41],stroke_color[16][41];
     for(unsigned j=0;j<16;j++)
     {
         float depth=(float)(j+1)/17.0f;
@@ -239,11 +331,16 @@ static void bw_vector_river(uint32_t t, float bloom, unsigned world)
                 float envelope=1.0f-across*across;
                 float wave=fm_sinf((float)x*0.027f+(float)t*0.00017f+depth*4.2f);
                 float fold=fm_sinf((float)x*0.057f-(float)t*0.00011f-depth*5.0f);
+                stroke_color[j][i]=bw_vector_music_color(j%4u,(float)i/40,bloom*(0.55f+bw.river.energy*0.45f));
+                if(!base) stroke_color[j][i]=bw_vector_mix(C_MUTE,stroke_color[j][i],180);
                 water[j][i]=(uint16_t)((91.0f+depth*depth*115.0f+
                     envelope*depth*(2.0f+bloom*23.0f)*wave+bloom*envelope*6.0f*fold)*256.0f);
             }
             int y=water[j][i];
-            if(i) bw_vector_stroke(prev_x*256,prev_y,x*256,y,j%4u==1u ? accent:base ? C_TXT:C_MUTE);
+            if(i)
+            {
+                bw_vector_stroke(prev_x*256,prev_y,x*256,y,stroke_color[j][i]);
+            }
             prev_x=x;prev_y=y;
         }
     }

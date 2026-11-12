@@ -5,7 +5,8 @@ strange as the music opens; an approaching fish gathers the river into a sharp F
 fight, a reveal, and a gradual return to still water.
 
 This checkout uses procedural line art throughout the firmware: river, water, rod, fish, portrait, icons and
-editor graphics. The fixed family of water curves grows continuously; foreground drawings trace and fade into
+editor graphics. Stars, wind and reeds accompany music-linked colour travelling through the water. All eight fish have distinct
+drawings, with a field guide. An original monoline font replaces the previous face. The fixed family of water curves grows continuously; foreground drawings trace and fade into
 the same scene. See [the visual system](docs/LINE_ART.md). This is a river-experience review build. Three sound worlds — DUSK, UNDERTOW, FIREFLIES — use
 the actual firmware's six-operator FM voices, effects and filtered stereo texture. Four musical layers are
 independent of fish species. One line supports all eight existing species, active fishing or unattended listening.
@@ -20,7 +21,7 @@ version until a separately authorized deployment. This local review build has no
 - Existing FM editing, live keys, effects, MIDI, saved patches, catch log, and USB backup remain available.
 - v0.3 session/patch/log restore is tested against an actual old-format backup.
 
-Review captures: `python3 tools/render_river_review.py --video --portrait` after building the host simulator. This writes
+Review captures: `python3 tools/render_river_review.py --video --portrait --controls` after building the host simulator. This writes
 three WAV studies and a 110-second video from the actual host application to `build/river-review`. Its thirty-second
 wait is explicitly chosen for demonstration; approach, fight, reveal and recovery run at their normal pace.
 

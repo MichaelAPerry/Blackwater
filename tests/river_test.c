@@ -56,6 +56,17 @@ int main(void)
     }
     assert(fabs(rms[0] - rms[1]) > 100 && fabs(rms[1] - rms[2]) > 100);
     printf("river worlds RMS: %.0f %.0f %.0f\n", rms[0], rms[1], rms[2]);
+    fresh(0);
+    run(15000);
+    float hue=e.river.color_voice[0];
+    assert(e.river.color_phase>0 && e.river.wind>0 && e.river.energy>0);
+    e.song.key=(uint8_t)((e.song.key+2)%12);
+    run(15000);
+    assert(e.river.color_voice[0]>hue+0.05f); /* follows the new played pitch, not just an animation timer */
+    bw_transport(&e,0);
+    float phase=e.river.color_phase;
+    run(1000);
+    assert(e.river.color_phase==phase);
     /* The shared pool and output headroom also hold with live keys over sustained river/effect tails. */
     fresh(BW_WORLD_FIREFLIES);
     for (unsigned k = 0; k < 4; k++)

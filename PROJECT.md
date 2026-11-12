@@ -1,5 +1,23 @@
 # BLACKWATER project record
 
+## Atmosphere, typography, species and FM controls, 2026-11-12
+
+The user liked the line-art direction and requested wind, stars, more shapes, music-linked colour movement and
+replacement typography. They also asked whether all fish and the FM editing buttons/screens were present.
+
+Added a sparse star field, constellation strokes, wind traces and reeds. Shared wind state opens the actual air
+texture's filter; actual played pitches, modulation, feedback and measured layer energy steer a smoothed colour
+field travelling along the water. It settles with the existing musical bloom and pauses with the music. Visual
+randomness does not alter fish selection. The old Barlow face is replaced by an original monoline instrument
+alphabet in all six font roles; lowercase notation remains distinct for minor/major chord labels.
+
+All eight species retain their encounter data and now have individually distinct geometry/markings. The field
+guide is CATCH LOG / PRESET page 3, common species beside rare cousins. FM screens use the same typeface and
+number the six operators. Their original hardware mapping and shared six-operator core remain in place.
+The audit found ratio/fixed-Hz changes did not update held voices; they now do without retriggering the envelope.
+Existing v0.3 saved layouts remain unchanged. Tests exercise actual hardware inputs across operator, frequency,
+routing, envelope, LFO, effects and patch pages, plus held-note changes and all eight guide drawings.
+
 ## Line-art direction and flow revision, approved 2026-11-12
 
 The user requested a complete firmware art change: OP-1-like line drawing for the river, water, rod, fish,

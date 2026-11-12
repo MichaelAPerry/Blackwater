@@ -13,19 +13,23 @@ not generated or linked into the firmware.
 cd /workspace/Blackwater
 . build/venv/bin/activate
 ./build.sh --host
-python3 tools/render_river_review.py --video --portrait --out build/flow-review
+python3 tools/render_river_review.py --video --portrait --controls --out build/atmosphere-review
 ```
 
 The tool drives fm1-base's actual host application at a 25 fps capture rate and produces:
 
-- `build/flow-review/{dusk,undertow,fireflies}/{name}.wav`: three thirty-second sound studies, with the line lifted.
-- `build/flow-review/river-encounter.mp4`: 110 seconds of actual LCD frames and rendered audio. Only the wait is
+- `build/atmosphere-review/{dusk,undertow,fireflies}/{name}.wav`: three thirty-second sound studies, with the line lifted.
+- `build/atmosphere-review/river-encounter.mp4`: 110 seconds of actual LCD frames and rendered audio. Only the wait is
   shortened to thirty seconds via the ordinary line controls. Approach (12 s), strike (1.6 s), unattended fight
   (16 s), reveal (8 s) and return (30 s) retain their normal timing. A rare fish is not forced for this capture.
 
-- `build/flow-review/rare-strike.mp4` and `portrait.png`: a naturally occurring rare encounter, recorded after
+- `build/atmosphere-review/rare-strike.mp4` and `portrait.png`: a naturally occurring rare encounter, recorded after
   627.2 seconds of simulated play with normal thirty-second waits. This short clip includes the speech, portrait
   trace and handoff into the fight; no fish is forced by a test-only command.
+
+- `build/atmosphere-review/controls/`: verified operator/frequency/routing/envelope/LFO/effects/patch screenshots,
+  the actual FM control audio render, and the eight-species field guide. The control scenario is also in the test
+  runner; the guide test compares the drawings without labels or colour to detect duplicated fish artwork.
 
 The video is a local recording, not an interactive replacement emulator. Actual-package browser evaluation uses
 the existing fm1-emu workflow once the required device compiler/SDK can be downloaded. No site has been deployed.
@@ -66,5 +70,6 @@ Node-Wasm tests, Chromium interaction, and physical-device checks remain outstan
 `pkgman.jieliapp.com` and `gitee.com` return proxy 403; the alternative fm1-base Web build also fails because
 `emcc` is absent. Earlier package metrics and browser evidence apply to the old build only.
 
-The first decision after listening is which sound world and degree of visual growth feel right. The next visual review should judge the movement and transitions in the recording, as well as still frames. Casting, additional locations, a larger synthesis
+The latest pass adds wind, stars, constellation strokes and reeds, travelling musical colour, and the original
+monoline font. The first decision after listening is which sound world and degree of visual growth feel right. The next visual review should judge the movement and transitions in the recording, as well as still frames. Casting, additional locations, a larger synthesis
 replacement and broad content expansion remain subsequent review decisions.

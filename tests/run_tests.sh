@@ -38,3 +38,5 @@ firmware/build/host/blackwater_host tests/session_compatibility.txt build/tests
 firmware/build/host/blackwater_host tests/vector_simulator.txt build/tests
 firmware/build/host/blackwater_host tests/vector_portrait.txt build/tests
 python3 tests/vector_visual_test.py build/tests
+firmware/build/host/blackwater_host tests/fm_controls.txt build/tests
+python3 tests/fish_guide_test.py build/tests

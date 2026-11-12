@@ -13,7 +13,9 @@ tap PLAY
 wait 9500
 expect river_phase 2
 shot vector-growth.png
-wait 2900
+wait 2000
+shot vector-color-flow.png
+wait 900
 expect river_phase 3
 shot vector-strike.png
 wait 1900

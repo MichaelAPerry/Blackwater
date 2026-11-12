@@ -34,9 +34,15 @@ while the rod recedes, its measurements fade in, and the scene returns to just t
   New sessions do not make abrupt personal-best key changes. Older v0.3 sessions, user patches and logs restore
   without a format reset. The new river scheduler interprets old motifs as slow gestures.
 
+## The fish guide
+
+HOME opens the river; HOME again opens CATCH LOG. Turn PRESET to page 3 for all eight fish: Bluegill / Crappie,
+Largemouth Bass / Peacock Bass, Brown Trout / Brook Trout, Channel Catfish / Flathead Catfish. Each has its own
+line drawing. Depth and bait influence encounters; musical layers do not restrict species.
+
 ## Sound editing
 
-The original FM patch editor, envelope, LFO, effects, live keys, MIDI, arpeggiator, and four user patch slots per
+The FM patch editor, envelope, LFO, effects, live keys, MIDI, arpeggiator, and four user patch slots per
 layer remain available. The old factory patches keep their names. Each layer is six-operator FM, sharing eight
 voices with release tails and live playing. Filtered stereo noise adds water/air alongside the FM layers.
 
@@ -47,6 +53,11 @@ progressions, if enabled, move once every 48 seconds.
 
 Editor pages retain their navigation header and knob bar. SELECT navigates editor pages even during a fight;
 reeling on those pages uses REC, so K1 keeps its displayed editor function.
+
+Ratio and fixed-frequency edits now update held notes. EDIT cycles operator / frequency / routing / patches;
+PRESET selects the operator on EDIT and ENV. The numbered routing diagram shows all six operators, with the
+selected one outlined. ALGORITHM selects the musical layer. This remains the existing six-operator FM core,
+with four editable layers and a shared eight-voice pool.
 
 ## Controls
 

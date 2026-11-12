@@ -10,7 +10,8 @@ does for a player: [MANUAL.md](MANUAL.md). The device build and the emulator/bro
 `bw_river.c` (included by the engine) coordinates elapsed-time phases and musical gestures; `bw_river_ui.c`
 (included by the app) coordinates the visual transitions. `bw_vector.c` supplies geometry, fixed-point
 antialiased subpixel strokes and the persistent water curves, using fm1-base's existing band canvas. The firmware
-no longer generates/includes bw_art.h. Old artwork/import tools remain archived and independently testable.
+no longer generates/includes bw_art.h. `make_line_font.py` generates the original monoline typeface after the
+platform font step through the supported app-generator hook. No platform files are changed. Old artwork/import tools remain archived and independently testable.
 `bw_engine.h` adds runtime state only. The stored song/track/patch/log layouts and version remain unchanged.
 World and memory use the two previously reserved preference bytes. Existing sessions keep their patches and
 motifs; loading a new sound world is explicit. The real v0.3 backup fixture tests restore, patch-library load,

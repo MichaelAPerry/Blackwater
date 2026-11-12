@@ -11,8 +11,26 @@ drawings and interface layouts, using sparse geometry, instrument accents and ne
   navigation icons, operator diagrams, meters, keyboard and patch/session controls. No sprite fallback exists.
 - Fixed-point antialiasing blends strokes into the current 240×48 LCD band. Water vertices retain subpixel
   precision, avoiding the jitter of whole-pixel curve motion. No extra full-screen framebuffer is allocated.
-- Old PNGs and importer tests remain historical material. `fm1.toml` generates the clip header only; the app
+- Old PNGs and importer tests remain historical material. `fm1.toml` generates the clip and monoline font headers; the app
   does not include sprite tables or sample an image to draw the landscape.
+
+## Atmosphere and colour
+
+Stars and constellations sit in the open sky; wind traces and sparse reeds share a smoothed wind value with the
+audio air filter. Wind responds to the selected weather. These details remain restrained at rest and yield to
+the strike/fight focus. They do not draw random values from the encounter generator.
+
+The flowing palette reads played pitch, modulation, FM feedback and layer energy from the real engine. A smooth
+phase carries colour along each curve, with per-layer pitch offsets; energy affects speed and the musical bloom
+affects saturation. Pausing freezes the field, and recovery settles it to the minimal river.
+
+Typography is an original monoline alphabet from `tools/make_line_font.py`, generated through the repository's
+normal app-generator hook into the native font-header format. It uses no downloaded fonts. All six roles share
+the same strokes, with tabular values and distinct lowercase notation for minor chords. The platform source and
+font generator are untouched.
+
+The fish guide pairs common and rare species. All eight have distinct outlines/markings, including peacock bars,
+crappie dorsal spines, brook-trout vermiculation, and the flathead's square tail and broad head.
 
 ## Choreography
 

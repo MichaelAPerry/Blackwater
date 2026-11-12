@@ -15,6 +15,7 @@ p.add_argument('--out', type=Path, default=ROOT / 'build/river-review')
 p.add_argument('--video', action='store_true', help='also make a 110-second MP4; requires ffmpeg')
 p.add_argument('--portrait', action='store_true', help='capture a naturally occurring rare strike and portrait')
 p.add_argument('--fps', type=int, choices=(10, 20, 25), default=25)
+p.add_argument('--controls', action='store_true', help='capture verified FM editing screens and all eight fish')
 a = p.parse_args()
 out = a.out.resolve()
 out.mkdir(parents=True, exist_ok=True)
@@ -37,6 +38,11 @@ for world, name in enumerate(('dusk', 'undertow', 'fireflies')):
     capture(name, 'wait 600\n' + select + 'tap REC\ntap PLAY\nwait 5000\n'
             f'wav {name}.wav\nwait 30000\nwavstop\nexpect peak_db_min -45\nshot river.png\n')
     print(out / name / f'{name}.wav', flush=True)
+
+if a.controls:
+    target=capture('controls',(ROOT/'tests/fm_controls.txt').read_text())
+    print(target/'fish-guide.png',flush=True)
+    print(target/'fm-operator.png',flush=True)
 
 if a.video:
     script = ['wait 600', 'tap SEQ', 'turn K1 -14', 'turn K2 -42', 'turn K3 -1',

@@ -1,0 +1,59 @@
+# Actual hardware controls, six-operator routing, held-note edits and the saved patch library.
+wait 600
+tap PLAY
+tap EDIT
+expect page 5
+key 0 down
+wav fm-controls.wav
+wait 700
+turn K1 4
+expect ratio 120
+turn K2 -10
+expect level 75
+turn K3 5
+expect feedback 5
+turn K4 1
+expect algorithm 6
+shot fm-operator.png
+tap EDIT
+expect sub 1
+turn K1 1
+expect fixed 1
+turn K2 3
+expect hz 470
+shot fm-frequency.png
+tap EDIT
+expect sub 2
+turn K3 -10
+expect route 90
+shot fm-routing.png
+tap ENV
+turn K1 10
+expect attack 950
+turn K4 5
+expect release_ms 5025
+shot fm-envelope.png
+tap LFO
+turn K2 15
+expect lfo_depth 15
+shot fm-lfo.png
+tap FX
+turn K1 10
+expect send_rev 35
+shot fm-effects.png
+tap EDIT
+tap EDIT
+expect sub 3
+turn K1 1
+turn K2 1
+expect level 80
+shot fm-patches.png
+wavstop
+key 0 up
+expect peak_db_min -45
+tap HOME
+tap HOME
+turn PRESET 2
+expect sub 2
+wait 3500
+shot fish-guide.png

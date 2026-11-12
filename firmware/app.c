@@ -56,7 +56,7 @@ enum
 static const char *const bw_pages[BW_NPAGES] = {"RIVER", "FISHING", "THEME", "CATCH LOG", "SCALE", "FM EDIT",
                                                 "ENVELOPE", "LFO", "EFFECTS", "ARP", "GLOBAL", "HELP"};
 static const char *const bw_layers[4] = {"CURRENT", "BED", "LIGHT", "DISTANCE"};
-static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 2, 1, 4, 1, 1, 4, 1, 3, 2};
+static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 3, 1, 4, 1, 1, 4, 1, 3, 2};
 static struct
 {
     uint32_t buttons, keys, last_draw, message_until, popup_until, last_input, event_seq, fight_ms;
@@ -912,13 +912,13 @@ static const char *bw_preset_hint(void)
     switch (bw_ui.page)
     {
     case BW_RIVER:
-        return "PRESET: WEATHER";
+        return "PRESET: WORLD";
     case BW_FISHING:
         return "PRESET: DEPTH";
     case BW_THEME:
         return sub ? "PRESET: SHAPE" : "PRESET: ACTIONS";
     case BW_LOG:
-        return sub ? "PRESET: BEST SIZES" : "PRESET: TOTALS";
+        return sub==2 ? "FIELD GUIDE" : sub ? "PRESET: TOTALS" : "PRESET: BEST SIZES";
     case BW_SCALE:
         return "PRESET: KEY";
     case BW_EDIT:
@@ -1033,7 +1033,12 @@ static void bw_knob_bar(const bw_knob_cell *kc, uint16_t c)
         char k[4] = {'K', (char)('1' + i), 0, 0};
         T(x + 4, 212, &FONT_T, k, c);
         T(x + 18, 212, &FONT_T, kc[i].label, C_MUTE);
-        T(x + 4, 223, &FONT_XS, kc[i].value, C_TXT);
+        const felucca_font_t *value_font=text_w(&FONT_XS,kc[i].value)>52 ? &FONT_T:&FONT_XS;
+        char fitted[11];
+        bw_text_copy(fitted,kc[i].value,sizeof fitted);
+        if(text_w(value_font,kc[i].value)>52)
+            fitted[7]=fitted[8]=fitted[9]='.';
+        T(x + 4, 223, value_font, fitted, C_TXT);
         if (kc[i].max > 0)
         {
             int32_t w = 52 * clamp(kc[i].v, 0, kc[i].max) / kc[i].max;
@@ -1120,9 +1125,11 @@ static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned
                 L(xs[i] + 22, ys[i] + 3, xs[j], ys[j] + 3, (uint16_t)(p->route[i][j] > 50 ? C_TXT : C_MUTE));
     for (int i = 0; i < 6; i++)
     {
-        int32_t w = 2 + (int32_t)p->op[i].level * 20 / 100; /* brightness by level: a bar inside the box */
-        bw_vector_box(xs[i],ys[i],22,7,i == (int)sel ? C_YEL:C_BAR);
-        L(xs[i]+2,ys[i]+3,xs[i]+(w>20 ? 20:w),ys[i]+3,p->carrier[i] ? c:C_MUTE);
+        int32_t w = (int32_t)p->op[i].level * 20 / 100;
+        bw_vector_box(xs[i],ys[i]-3,22,13,i == (int)sel ? C_YEL:C_BAR);
+        char number[2]={(char)('1'+i),0};
+        T(xs[i]+8,ys[i]-1,&FONT_T,number,p->carrier[i] ? c:C_MUTE);
+        L(xs[i]+1,ys[i]+9,xs[i]+1+w,ys[i]+9,p->carrier[i] ? c:C_MUTE);
         if (p->op[i].feedback)
             R(xs[i] + 9, ys[i] - 2, 4, 1, C_PINK); /* feedback */
         if (p->carrier[i])
@@ -1170,6 +1177,18 @@ static void bw_draw_page(uint32_t ms)
         }
         break;
     case BW_LOG:
+        if(sub==2)
+        {
+            for(unsigned cell=0;cell<BW_SPECIES;cell++)
+            {
+                unsigned sp=cell/2u+(cell%2u)*4u;
+                int x=8+(int)(cell%2u)*116,y=52+(int)(cell/2u)*42;
+                bw_vector_fish(x+18,y+6,sp,10,1.25f,C_TXT);
+                int tx=x+(110-text_w(&FONT_T,bw_species_names[sp]))/2;
+                T(tx,y+33,&FONT_T,bw_species_names[sp],sp>=4 ? C_YEL:C_MUTE);
+            }
+            return;
+        }
         if (sub == 0)
             for (unsigned i = 0; i < 8; i++)
             {
@@ -1254,7 +1273,7 @@ static void bw_draw_page(uint32_t ms)
             T(6, 194, &FONT_T, "K2 RIGHT LOADS IT. K3 RIGHT STORES TO A USER SLOT", C_MUTE);
         }
         else
-            T(6, 180, &FONT_T, "WHITE KEYS PLAY THE LAYER. BLACK KEYS BEND ITS FM", C_MUTE);
+            T(6, 180, &FONT_T, "KEYS PLAY / BLACK KEYS BEND FM", C_MUTE);
         if (sub == 0)
         {
             bw_kcell(&kc[0], "RATIO", o->ratio, 1600, 0);
@@ -1441,12 +1460,11 @@ static void bw_draw_page(uint32_t ms)
     default:
     {
         static const char *const help[2][8] = {
-            {"SELECT TURNS THE PAGES (THE ICONS)", "PRESET: WHAT THE HEADER SAYS (TOP RIGHT)", "K1-K4: SEE THE BAR AT THE BOTTOM",
-             "ALGORITHM CHOOSES THE LAYER", "PLAY STARTS THE RIVER", "REC: A BITE, OR A LINE IN / OUT",
-             "SELECT, K1 OR REC REELS A FISH IN", "SAVE KEEPS THIS SLOT"},
-            {"HOME: RIVER, AGAIN: CATCH LOG", "SEQ: FISHING, AGAIN: THEME  EDIT AGAIN: ITS PAGES", "SCL: SCALE  EDIT: FM  ENV: ENVELOPE",
-             "LFO  FX: EFFECTS  ARP  GLO: GLOBAL", "WHITE KEYS PLAY THE CHOSEN LAYER", "BLACK KEYS (HOLD) BEND ITS FM",
-             "OCT- / OCT+ MOVE THE KEYBOARD", "MASTER: THE VOLUME"}};
+            {"SELECT / PAGE", "PRESET / SEE HEADER", "K1-K4 / PARAMETERS", "ALGO / SOUND LAYER",
+             "PLAY / START OR PAUSE", "REC / PLACE, LIFT OR HOOK", "SELECT OR K1 / REEL", "SAVE / KEEP SESSION"},
+            {"HOME / RIVER, THEN CATCH LOG", "LOG + PRESET / FIELD GUIDE", "SEQ / LINE, THEN MOTIF",
+             "EDIT / FM, AGAIN FOR NEXT PAGE", "ENV / ENVELOPE   LFO / MODULATION", "FX / SPACE   ARP / ARPEGGIATOR",
+             "WHITE KEYS PLAY / BLACK KEYS BEND", "MASTER / LEVEL   OCT- OCT+ / RANGE"}};
         for (unsigned i = 0; i < 8; i++)
             T(6, 52 + (int32_t)i * 20, &FONT_XS, help[sub][i], i % 2 ? C_TXT : C_MUTE);
         T(4, 218, &FONT_XS, "BLACKWATER " APP_VERSION, C_MUTE);
@@ -1590,6 +1608,13 @@ int app_expect(const char *what, int *got)
                   {"bait", t->bait},
                   {"depth", t->depth},
                   {"level", t->patch.op[bw_ui.op].level},
+                  {"ratio", t->patch.op[bw_ui.op].ratio},
+                  {"fixed", t->patch.op[bw_ui.op].fixed},
+                  {"hz", t->patch.op[bw_ui.op].hz},
+                  {"feedback", t->patch.op[bw_ui.op].feedback},
+                  {"route", t->patch.route[bw_ui.route_source][bw_ui.route_dest]},
+                  {"attack", t->patch.op[bw_ui.op].attack},
+                  {"release_ms", t->patch.op[bw_ui.op].release},
                   {"volume", t->volume},
                   {"weather", bw.song.weather},
                   {"algorithm", t->patch.algorithm},

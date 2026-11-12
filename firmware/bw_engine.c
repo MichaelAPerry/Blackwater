@@ -1341,6 +1341,9 @@ static void bw_voice_prepare(bw_engine *e, bw_voice *v)
         v->gain[i] = (float)o->level * 0.01f * (1.0f - (float)o->velocity * 0.01f * (1.0f - v->velocity));
         v->cw[i] = (float)p->carrier[i] * 0.01f * inv[carriers];
         v->fb[i] = (float)o->feedback * 0.012f + fba;
+        /* Ratio/fixed-Hz edits must affect held voices, not wait for another ambient gesture. */
+        float hz=bw_note_hz[v->note];
+        v->increment[i]=fm_minf(o->fixed ? (float)o->hz:hz*((float)o->ratio/100.0f),BW_RATE*0.45f)/BW_RATE;
         v->inc[i] = v->increment[i] * pm * (p->carrier[i] ? 1.0f : metal);
         v->nsrc[i] = 0;
         for (j = i + 1; j < 6; j++)

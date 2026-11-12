@@ -41,6 +41,7 @@ typedef struct
     uint8_t enabled, world, phase, line, memory;
     int16_t reel;
     float growth, bloom, pressure, duck, texture_l, texture_r, body_l, body_r;
+    float wind, energy, color_phase, color_voice[4];
 } bw_river_state;
 
 typedef struct
