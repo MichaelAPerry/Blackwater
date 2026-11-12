@@ -1,0 +1,41 @@
+# Naturally scheduled events, actual panel settings and rendered audio. No forced event commands.
+wait 600
+tap GLO
+turn K3 2
+tap HOME
+tap REC
+tap PLAY
+wait 13000
+expect life 4
+shot living-leaf.png
+wait 17000
+expect life 1
+shot living-star.png
+wait 14000
+expect life 3
+shot living-jump.png
+wait 15000
+expect life 6
+shot living-firefly.png
+expect motif_notes 8
+expect catches 0
+tap GLO
+turn K3 2
+tap HOME
+wait 21000
+expect life 5
+shot living-bee.png
+expect ufos 0
+# Reboot a fresh, unsaved session; return to the night timeline for its first UFO.
+reboot
+wait 600
+tap GLO
+turn K3 2
+tap HOME
+tap REC
+tap PLAY
+wait 1143000
+expect life 2
+expect ufos 1
+shot living-ufo.png
+expect catches 0

@@ -34,6 +34,18 @@ The tool drives fm1-base's actual host application at a 25 fps capture rate and 
 The video is a local recording, not an interactive replacement emulator. Actual-package browser evaluation uses
 the existing fm1-emu workflow once the required device compiler/SDK can be downloaded. No site has been deployed.
 
+For the living river and keyboard revision:
+
+```sh
+python3 tools/render_living_review.py --out build/living-review
+```
+
+`living-river.mp4` joins normal-speed clips of a leaf, shooting star (with its actual FM motif), jumping fish,
+firefly, bee and UFO. Waits between events are omitted from the recording; each event arises naturally through
+normal panel settings. The UFO capture runs nineteen minutes of simulation before recording. `free.mp4` records
+chromatic keys, held chords, SELECT choosing an operator and a live ratio edit. Individual clips, stills, WAVs,
+input scenarios and logs are alongside them. Controls are documented in [the manual](MANUAL.md#full-keyboard-and-free-play).
+
 ## What changed
 
 - One line, independent of four musical layers. All eight fish can approach; bait/depth influence the selection.
@@ -59,6 +71,8 @@ build/venv/bin/python tests/package_metadata_test.py
 
 The runner includes original engine tests under UBSan, the new river suite, art import, reference clip decode,
 synthetic speech playback, normal host controls/storage, manual encounter/off-page progression, and v0.3 restore.
+It also exercises full-key performance, free play, operator selection, mode/key-map persistence, independently
+scheduled wildlife, natural UFO rarity and actual star motifs. Live held keys take priority over background music.
 The river suite renders a full ten minutes and checks encounter counts, no overlap, finite/unclipped audio,
 elapsed-time independence, strike grace, pause, recovery, rare speech and harmonic memory. The long synthetic
 clip scenario exercises unattended encounters and rare clip triggers rather than instant automatic catches.

@@ -515,7 +515,7 @@ void bw_init(bw_engine *e)
         e->live_note[k] = -1;
         e->last_voice[k] = 0xFF;
     }
-    for (i = 0; i < 16; i++)
+    for (i = 0; i < BW_KEYS; i++)
         e->arp_held[i] = -1;
     e->midi_out = 1;
     bw_gains_set = 0;
@@ -540,15 +540,17 @@ static bw_voice *bw_alloc(bw_engine *e, unsigned k, int live)
     if (!live && bw_mono[k % 4] && e->last_voice[k] < BW_VOICES)
     {
         bw_voice *v = &e->voice[e->last_voice[k]];
-        if (v->track == k && !v->live && v->active)
+        if (v->track == k && !v->live && !v->world && v->active)
             return v;
     }
-    for (i = 0; i < BW_VOICES; i++)
+    unsigned limit=(!live && e->river.enabled && e->mode==BW_MODE_RIVER) ? BW_VOICES-1u:BW_VOICES;
+    for (i = 0; i < limit; i++)
         if (!e->voice[i].active)
             return &e->voice[i];
     /* steal: the oldest, preferring this track's own, never a held live note while another will do */
-    for (int pass = 0; pass < 3 && !best; pass++)
-        for (i = 0; i < BW_VOICES; i++)
+    int passes=(!live && e->river.enabled) ? 2:3;
+    for (int pass = 0; pass < passes && !best; pass++)
+        for (i = 0; i < limit; i++)
         {
             bw_voice *v = &e->voice[i];
             if (pass == 0 && (v->track != k || v->held))
@@ -568,6 +570,7 @@ static void bw_voice_on(bw_engine *e, bw_voice *v, unsigned k, unsigned note, un
     const bw_patch *p = &e->track[k].patch;
     float hz = bw_note_hz[note > 127 ? 127 : note];
     unsigned i;
+    v->world = 0;
     v->velocity = (float)(velocity > 127 ? 127 : velocity) / 127.0f;
     v->track = (uint8_t)k;
     v->note = (uint8_t)note;
@@ -611,11 +614,12 @@ static void bw_seq_note(bw_engine *e, unsigned k, unsigned note, unsigned vel)
     if (e->last_voice[k] < BW_VOICES)
     {
         bw_voice *old = &e->voice[e->last_voice[k]];
-        if (old->track == k && !old->live && old->active && !bw_mono[k % 4])
+        if (old->track == k && !old->live && !old->world && old->active && !bw_mono[k % 4])
             bw_voice_off(e, old);
     }
     if (e->sounding[k])
         bw_midi_note(e, k, e->midi_notes[k], 0, 0);
+    e->sounding[k]=0;
     bw_voice *v = bw_alloc(e, k, 0);
     if (!v)
         return;
@@ -634,7 +638,7 @@ static void bw_seq_off(bw_engine *e, unsigned k)
     if (e->last_voice[k] < BW_VOICES)
     {
         bw_voice *v = &e->voice[e->last_voice[k]];
-        if (v->track == k && !v->live && v->active)
+        if (v->track == k && !v->live && !v->world && v->active)
             bw_voice_off(e, v);
     }
     if (e->sounding[k])
@@ -643,6 +647,7 @@ static void bw_seq_off(bw_engine *e, unsigned k)
 }
 void bw_all_notes_off(bw_engine *e)
 {
+    if(e->river.enabled) bw_world_stop(e);
     for (unsigned k = 0; k < 4; k++)
     {
         bw_seq_off(e, k);
@@ -673,11 +678,10 @@ void bw_live_note(bw_engine *e, unsigned k, unsigned note, int down, unsigned ve
     {
         bw_voice *v = &e->voice[i];
         if (v->active && v->live && v->held && v->track == k && v->note == note)
-        {
             bw_voice_off(e, v);
-            bw_midi_note(e, k, note, 0, 0);
-        }
     }
+    /* A stolen internal voice still has a held physical/MIDI key to release externally. */
+    bw_midi_note(e,k,note,0,0);
 }
 static unsigned bw_step_ticks(const bw_engine *e, unsigned k)
 {
@@ -741,6 +745,8 @@ void bw_macro(bw_engine *e, unsigned k, unsigned macro, int down)
     if (e->river.enabled && down && macro == BW_M_STUTTER)
         e->river.note_at[k] = e->river.ms;
 }
+
+#include "bw_keyboard.c"
 
 /* ------------------------------------------------------------------ fishing */
 unsigned bw_weather(const bw_engine *e)
@@ -1101,23 +1107,24 @@ static unsigned bw_swing_ticks(const bw_engine *e, unsigned k)
 static void bw_arp_tick(bw_engine *e)
 {
     unsigned k = e->live_track % 4, i, n = 0;
-    int list[16], order[16];
+    int list[BW_KEYS], order[BW_KEYS];
     if (!e->arp)
         return;
     unsigned period = bw_arp_ticks[e->song.arp_rate % 5];
     if (e->ticks % period)
         return;
-    for (i = 0; i < 16; i++)
+    for (i = 0; i < BW_KEYS; i++)
         if (e->arp_held[i] >= 0)
         {
             list[n] = (int)i;
             order[n++] = e->arp_held[i];
         }
-    if (e->live_note[k] >= 0)
-    {
-        bw_live_note(e, k, (unsigned)e->live_note[k], 0, 0);
-        e->live_note[k] = -1;
-    }
+    for(unsigned layer=0;layer<4;layer++)
+        if(e->live_note[layer]>=0)
+        {
+            bw_live_note(e,layer,(unsigned)e->live_note[layer],0,0);
+            e->live_note[layer]=-1;
+        }
     if (!n)
         return;
     if (e->song.arp_mode == BW_ARP_PLAYED)
@@ -1149,7 +1156,9 @@ static void bw_arp_tick(bw_engine *e)
     }
     e->arp_pos++;
     int deg = bw_white_deg(e, (unsigned)list[idx % n]) + (int)(idx / n) * 7;
-    unsigned note = (unsigned)bw_note_of(e, k, deg, 0);
+    unsigned note = bw_keyboard_full(e) ? (unsigned)(53+list[idx%n]+e->live_oct*12+(int)(idx/n)*12):
+        (unsigned)bw_note_of(e, k, deg, 0);
+    if(note>127) note=127;
     bw_live_note(e, k, note, 1, 100);
     e->live_note[k] = (int8_t)note;
     e->arp_gate_left = period * e->song.arp_gate / 100u; /* ticks until the arp note's release */
@@ -1161,7 +1170,7 @@ static void bw_tick(bw_engine *e)
     bw_arp_tick(e);
     if (e->arp_gate_left && !--e->arp_gate_left)
     {
-        unsigned lk = e->live_track % 4;
+        for(unsigned lk=0;lk<4;lk++)
         if (e->live_note[lk] >= 0)
         {
             bw_live_note(e, lk, (unsigned)e->live_note[lk], 0, 0);
@@ -1313,7 +1322,9 @@ static void bw_modulation(bw_engine *e, unsigned frames)
         e->pitch_scale[k] = bw_exp2((pitch + e->bend[k]) * (1.0f / 12.0f));
         e->amp_scale[k] = amp;
         e->pan_mod[k] = pan;
-        if (e->river.enabled)
+        if(e->mode==BW_MODE_FREE)
+            e->amp_scale[k]*=0.65f;
+        else if (e->river.enabled)
         {
             float bloom = e->river.bloom;
             e->mod_scale[k] *= 0.55f + bloom * 0.65f + e->river.pressure * 0.45f;
@@ -1410,6 +1421,7 @@ static float bw_voice_sample(bw_engine *e, bw_voice *v)
     return mix;
 }
 #define BW_BLOCK 256u
+#include "bw_life.c"
 #include "bw_river.c"
 static float bw_l[BW_BLOCK], bw_r[BW_BLOCK], bw_srev[BW_BLOCK], bw_sdly[BW_BLOCK], bw_scho[BW_BLOCK];
 static float bw_drive(float x, float amount)

@@ -121,7 +121,7 @@ static void bw_draw_river_scene(uint32_t now, int setup)
         }
         else
         {
-            T(24,217,&FONT_T,"CURRENT / BED / LIGHT / DISTANCE",bw_vector_text_color(C_MUTE,controls));
+            T(24,217,&FONT_T,bw.keyboard_unlocked ? "ALL 27 KEYS / ONE LIVE VOICE":"CURRENT / BED / LIGHT / DISTANCE",bw_vector_text_color(C_MUTE,controls));
             T(24,229,&FONT_T,(int32_t)(bw_ui.message_until-now)>0 ? bw_ui.message:
                 "PRESET / WORLD     SEQ / LINE",bw_vector_text_color(C_MUTE,controls));
         }

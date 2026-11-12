@@ -15,6 +15,30 @@ the sound grows. At the strike, the water settles and the rod draws in; rare fis
 Jeremy-inspired portrait. The fight uses the same scene and focal point. A caught fish rises from that point
 while the rod recedes, its measurements fade in, and the scene returns to just the river. No sprite cards appear.
 
+Leaves drift in the wind, fish occasionally jump, bees visit in daylight, and fireflies glow after dark. Shooting
+stars bring a short four-note FM motif, repeated once. A UFO is much rarer: the first visit takes 15–20 minutes,
+then visits are spaced by at least another 20 minutes. These events yield as a fish approaches and pause with
+the music. Jumping wildlife does not add to the catch log.
+
+## Full keyboard and free play
+
+Press **GLO**, then turn **PRESET** to **page 4 / PERFORMANCE** (or press GLO repeatedly).
+
+- **K1 MODE:** RIVER or FREE.
+- **K2 RIVERKEY:** SCALE retains white-key scale notes and black-key FM macros; ALL 27 unlocks the entire
+  chromatic keyboard, including the black keys. Its unshifted range is F3–G5; OCT−/OCT+ change the range.
+- **K3 VOICE:** choose CURRENT, BED, LIGHT or DISTANCE. **ALGO** also chooses this voice. In unlocked RIVER,
+  its ambient part yields to your playing; the other layers and fishing continue.
+- **K4 OCTAVE:** keyboard octave shift.
+
+FREE always uses all 27 keys. HOME opens its FM performance screen; there is no automatic river composition
+or fishing. **SELECT chooses the operator to edit (1–6)**, while keys play the complete six-operator voice.
+**ALGO chooses the voice**, **PRESET loads one of its four factory/four saved user patches**, and **K1–K4**
+edit the selected operator's ratio, level, feedback and the voice's algorithm. Use EDIT/ENV/LFO/FX for deeper
+editing; SELECT also chooses the operator on EDIT/ENV in FREE. PLAY runs the arpeggiator; direct keys also
+sound while stopped. SEQ opens the motif editor. REC has no fishing action in FREE. Mode, river key unlock
+and voice are retained by SAVE. Held keys release correctly even if you change octave or voice before letting go.
+
 ## Fishing
 
 - **SEQ** opens line settings. K1/K2 set minimum/maximum wait (0–600 seconds, five seconds per click), K3 selects
@@ -73,16 +97,16 @@ with four editable layers and a shared eight-voice pool.
 | LFO | LFO of this fish: rate (0.05–20 Hz), depth, target (pitch, FM index, volume, pan), shape (sine, triangle, square, random) |
 | FX | EFFECTS, four pages: this fish's sends (reverb, echo, chorus, drive); reverb size, tone, level, echo time (1/16–1/4 dotted, at the tempo); echo feedback and level, chorus rate and depth; master tone and width |
 | ARP | ARP page; again: off / on / latch. K1 mode (up, down, up-down, random, as played), K2 rate (1/4–1/32), K3 octaves, K4 gate |
-| GLO | GLOBAL, three pages: tempo, clock (internal / MIDI), weather (auto: day, dusk, night, storm, three minutes each), best = key change; units (cm/kg or in/lb), fish-on clip and level, autosave; slots (load / save 1–4), MIDI out |
+| GLO | GLOBAL, four pages: tempo/clock/weather; units/clip/autosave; slots/MIDI; performance (mode, river keys, voice, octave) |
 | SAVE | save this slot (with the catch log and settings) |
-| ALGORITHM | choose the fish |
-| SELECT | the pages (the icons along the top); in a fight: reel in |
+| ALGORITHM | choose the musical/keyboard voice |
+| SELECT | the pages; in a river fight: reel in; FREE home/EDIT/ENV: selected FM operator |
 | PRESETS | what the header says, top right: RIVER the sound world (stopped), FISHING the depth, SCALE the key, EDIT and ENVELOPE the operator, LFO the target, ARP the mode; elsewhere the page's sub-page (the page's button again does that too) |
 | K1–K4 | the page's four values; editor pages and line settings show a knob bar |
 | MASTER | volume |
 | OCT- / OCT+ | the keyboard's octave |
-| White keys | play the chosen fish in the scale (16 notes); with ARP on, arpeggiated |
-| Black keys (hold) | FM macros on the chosen fish: BRIGHT, DARK, GROWL (feedback), METAL (inharmonic), DIVE (glide an octave down), RISE (up), STUTTER, HALF speed, CUT, OCTAVE up, THROW (into the reverb and echo) |
+| White keys | SCALE: 16 scale notes; ALL 27/FREE: chromatic notes. ARP supports either mapping |
+| Black keys (hold) | ALL 27/FREE: chromatic notes. SCALE: BRIGHT, DARK, GROWL, METAL, DIVE, RISE, STUTTER, HALF, CUT, OCTAVE up, THROW |
 
 Lights: PLAY while playing, SAVE while unsaved, REC at a bite, ARP while on; the white keys walk the chosen fish's
 steps.

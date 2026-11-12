@@ -56,7 +56,7 @@ enum
 static const char *const bw_pages[BW_NPAGES] = {"RIVER", "FISHING", "THEME", "CATCH LOG", "SCALE", "FM EDIT",
                                                 "ENVELOPE", "LFO", "EFFECTS", "ARP", "GLOBAL", "HELP"};
 static const char *const bw_layers[4] = {"CURRENT", "BED", "LIGHT", "DISTANCE"};
-static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 3, 1, 4, 1, 1, 4, 1, 3, 2};
+static const uint8_t bw_subpages[BW_NPAGES] = {1, 1, 2, 3, 1, 4, 1, 1, 4, 1, 4, 2};
 static struct
 {
     uint32_t buttons, keys, last_draw, message_until, popup_until, last_input, event_seq, fight_ms;
@@ -216,6 +216,7 @@ static int bw_load_slot(unsigned slot)
     if (plat_store_load(bw_slot_obj[slot % 4], &s, sizeof s) == (int)sizeof s && bw_saved_valid(&s))
     {
         uint32_t lock = plat_lock();
+        bw_panel_clear(&bw);
         bw_all_notes_off(&bw);
         bw.song = s.song;
         for (unsigned k = 0; k < 4; k++)
@@ -248,7 +249,11 @@ static void bw_load_all(void)
     }
     if (plat_store_load(OBJ_LOG, &l, sizeof l) == (int)sizeof l && l.magic == BW_MAGIC && l.version == BW_VERSION)
         bw.log = l.log;
-    bw.river.world = bw_pref.pad[0] < BW_WORLDS ? bw_pref.pad[0] : 0;
+    unsigned world=bw_pref.pad[0]&3u;
+    bw.river.world=(uint8_t)(world<BW_WORLDS ? world:0);
+    bw.keyboard_unlocked=(bw_pref.pad[0]>>2)&1u;
+    bw.mode=(bw_pref.pad[0]>>3)&1u;
+    bw.live_track=(bw_pref.pad[0]>>4)&3u;
     bw.river.memory = bw_pref.pad[1] <= BW_SPECIES ? bw_pref.pad[1] : 0;
     if (!bw_load_slot(bw_pref.slot))
     {
@@ -262,6 +267,7 @@ static void bw_load_all(void)
         }
     }
     bw.midi_out = bw_pref.midi_out;
+    bw_ui.track=bw.live_track;
 }
 static int bw_save_all(unsigned slot)
 {
@@ -272,6 +278,7 @@ static int bw_save_all(unsigned slot)
     s.magic = BW_MAGIC;
     s.version = BW_VERSION;
     s.seed = bw.rng ? bw.rng : 1u;
+    bw_pref.pad[0]=(uint8_t)(bw.river.world | bw.keyboard_unlocked<<2 | bw.mode<<3 | bw.live_track<<4);
     bw_pref.pad[1] = bw.river.memory;
     s.song = bw.song;
     for (unsigned k = 0; k < 4; k++)
@@ -333,10 +340,11 @@ void app_init(void)
         bw_ui.preview[k] = -1;
     memset(&bw_fish_on, 0, sizeof bw_fish_on);
     bw_clip_plays = 0;
+    bw_ui.track=bw.live_track;
     bw_ui.route_source = 1;
     bw_ui.draw = 1;
     bw_ui.event_seq = bw.event.seq;
-    bw_cast(&bw, 0); /* one line; all four musical layers exist independently */
+    if(bw.mode==BW_MODE_RIVER) bw_cast(&bw,0);
 }
 void app_panic(void)
 {
@@ -392,8 +400,15 @@ static void bw_knob(unsigned knob, int d)
     bw_operator *o = &p->op[bw_ui.op];
     switch (bw_ui.page)
     {
-    case BW_RIVER: /* the river is the mixer: a knob for each fish's level */
-        bw.track[knob].volume = (uint8_t)bw_step_val(bw.track[knob].volume, d * 2, 0, 100);
+    case BW_RIVER:
+        if(bw.mode==BW_MODE_FREE)
+        {
+            if(knob==0) o->ratio=(uint16_t)bw_step_val(o->ratio,d*5,5,1600);
+            if(knob==1) o->level=(uint8_t)bw_step_val(o->level,d,0,100);
+            if(knob==2) o->feedback=(uint8_t)bw_step_val(o->feedback,d,0,100);
+            if(knob==3) bw_algorithm(p,(unsigned)bw_step_val(p->algorithm,d,0,7));
+        }
+        else bw.track[knob].volume=(uint8_t)bw_step_val(bw.track[knob].volume,d*2,0,100);
         break;
     case BW_FISHING:
         if (knob == 0)
@@ -596,7 +611,7 @@ static void bw_knob(unsigned knob, int d)
             if (knob == 3)
                 bw_pref.autosave = (uint8_t)bw_step_val(bw_pref.autosave, d, 0, 1);
         }
-        else
+        else if(sub==2)
         {
             if (knob == 0)
                 bw_ui.slot_pick = (uint8_t)bw_step_val(bw_ui.slot_pick, d, 0, 3);
@@ -620,6 +635,21 @@ static void bw_knob(unsigned knob, int d)
                 bw_pref.midi_out = (uint8_t)bw_step_val(bw_pref.midi_out, d, 0, 1);
                 bw.midi_out = bw_pref.midi_out;
             }
+        }
+        if(sub==3)
+        {
+            if(knob==0)
+            {
+                bw_performance_mode(&bw,(unsigned)bw_step_val(bw.mode,d,0,1));
+                bw_ui.track=bw.live_track;bw_fish_on.active=0;
+            }
+            if(knob==1) bw_keyboard_unlock(&bw,bw_step_val(bw.keyboard_unlocked,d,0,1));
+            if(knob==2)
+            {
+                bw_keyboard_layer(&bw,(unsigned)bw_step_val(bw.live_track,d,0,3));
+                bw_ui.track=bw.live_track;
+            }
+            if(knob==3) bw.live_oct=(int8_t)bw_step_val(bw.live_oct,d,-2,2);
         }
         break;
     default:
@@ -647,7 +677,6 @@ static void bw_page(unsigned page)
 }
 static void bw_input(void)
 {
-    static const uint8_t white[16] = PLAT_WHITE_KEYS, black[11] = PLAT_BLACK_KEYS;
     uint32_t now = plat_ms();
     uint32_t buttons = plat_buttons(), keys = plat_keys(), pressed = buttons & ~bw_ui.buttons;
     int turn[NE], e;
@@ -666,11 +695,11 @@ static void bw_input(void)
     int fighting = bw_fish_state(&bw, bw.river.enabled ? bw.river.line : k) == BW_FISH_FIGHT;
     int reel_page = bw_ui.page == BW_RIVER || bw_ui.page == BW_FISHING;
     uint32_t lock = plat_lock();
-    if ((e = turn[EN_ALGO]) && !fighting)
+    if ((e = turn[EN_ALGO]) && (!fighting || bw_keyboard_full(&bw)))
     {
         /* the held macros and live notes stay with the track they started on */
         bw_ui.track = (uint8_t)clamp(bw_ui.track + e, 0, 3);
-        bw.live_track = bw_ui.track;
+        bw_keyboard_layer(&bw,bw_ui.track);
     }
     if (fighting && reel_page)
     {
@@ -690,8 +719,9 @@ static void bw_input(void)
     }
     if ((e = turn[EN_SELECT]))
     {
-        /* SELECT always turns the pages (the operator is PRESET's on EDIT and ENVELOPE) */
-        bw_ui.page = (uint8_t)clamp(bw_ui.page + e, 0, BW_NPAGES - 1);
+        if(bw.mode==BW_MODE_FREE && (bw_ui.page==BW_RIVER || bw_ui.page==BW_EDIT || bw_ui.page==BW_ENV))
+            bw_ui.op=(uint8_t)clamp(bw_ui.op+e,0,5);
+        else bw_ui.page=(uint8_t)clamp(bw_ui.page+e,0,BW_NPAGES-1);
     }
     if ((e = turn[EN_PRESET]))
     {
@@ -704,14 +734,21 @@ static void bw_input(void)
         }
         else if (bw_ui.page == BW_RIVER)
         {
-            if (bw.playing)
+            if(bw.mode==BW_MODE_FREE)
+            {
+                bw_ui.patch_pick=(uint8_t)clamp(bw.track[k].patch_slot+e,0,7);
+                if(bw_ui.patch_pick<4) bw_patch_factory(&bw.track[k].patch,k,bw_ui.patch_pick);
+                else bw.track[k].patch=bw_user.user[k][bw_ui.patch_pick-4u];
+                bw.track[k].patch_slot=bw_ui.patch_pick;bw_ui.dirty=1;
+            }
+            else if (bw.playing)
                 app_say("STOP TO CHANGE WORLD", "PRESET: DUSK / UNDERTOW / FIREFLIES");
             else
             {
                 unsigned world = (bw.river.world + BW_WORLDS + (e > 0 ? 1 : -1)) % BW_WORLDS;
                 bw_all_notes_off(&bw);
                 bw_river_world(&bw, world);
-                bw_pref.pad[0] = (uint8_t)world;
+                bw_pref.pad[0]=(uint8_t)((bw_pref.pad[0]&~3u)|world);
                 app_say("WORLD", bw_world_names[world]);
                 bw_ui.dirty = 1;
             }
@@ -751,10 +788,11 @@ static void bw_input(void)
         {
             if (b == B_ARP && bw_ui.page == BW_ARP)
             {
+                bw_panel_clear(&bw);
                 bw.arp = (uint8_t)((bw.arp + 1) % 3);
                 if (!bw.arp)
                 {
-                    for (unsigned i = 0; i < 16; i++)
+                    for (unsigned i = 0; i < BW_KEYS; i++)
                         bw.arp_held[i] = -1;
                     if (bw.live_note[k] >= 0)
                         bw_live_note(&bw, k, (unsigned)bw.live_note[k], 0, 0);
@@ -763,12 +801,13 @@ static void bw_input(void)
                 static const char *const arp_state[3] = {"ARP OFF", "ARP ON", "ARP LATCH"};
                 app_say(arp_state[bw.arp], "");
             }
-            else
-                bw_page(page_of[b]);
+            else if(bw.mode==BW_MODE_FREE && b==B_HOME) bw_ui.page=BW_RIVER;
+            else if(bw.mode==BW_MODE_FREE && b==B_SEQ) bw_page(BW_THEME);
+            else bw_page(page_of[b]);
         }
     if (pressed & (1u << B_PLAY))
         bw_transport(&bw, !bw.playing);
-    if (pressed & (1u << B_REC))
+    if ((pressed & (1u << B_REC)) && bw.mode==BW_MODE_RIVER)
     {
         /* a bite on any line: REC answers it (the chosen fish first), and that fish becomes the chosen one */
         int biting = -1;
@@ -792,8 +831,11 @@ static void bw_input(void)
         {
             if (bw_hookset(&bw, (unsigned)biting))
             {
-                bw_ui.track = (uint8_t)biting;
-                bw.live_track = bw_ui.track;
+                if(!bw_keyboard_full(&bw))
+                {
+                    bw_ui.track=(uint8_t)biting;
+                    bw_keyboard_layer(&bw,bw_ui.track);
+                }
                 bw_ui.page = BW_FISHING;
                 bw_ui.fight_ms = now;
                 app_say(bw.fish_rare[biting] ? "FISH ON!" : "HOOK SET", "REEL: SELECT OR REC");
@@ -808,14 +850,9 @@ static void bw_input(void)
         bw.live_oct = (int8_t)clamp(bw.live_oct + 1, -2, 2);
     if (pressed & (1u << B_OCTDN))
         bw.live_oct = (int8_t)clamp(bw.live_oct - 1, -2, 2);
-    /* the keys: white ones play the fish in the scale (or the arpeggiator), black ones bend its FM */
-    uint32_t changed = keys ^ bw_ui.keys;
-    for (unsigned i = 0; i < 16; i++)
-        if (changed >> white[i] & 1)
-            bw_live_key(&bw, i, (int)(keys >> white[i] & 1), 100);
-    for (unsigned i = 0; i < 11; i++)
-        if (changed >> black[i] & 1)
-            bw_macro(&bw, k, i, (int)(keys >> black[i] & 1));
+    uint32_t changed=keys^bw_ui.keys;
+    for(unsigned key=0;key<BW_KEYS;key++)
+        if(changed>>key&1u) bw_panel_key(&bw,key,(keys>>key)&1u,100);
     bw_ui.buttons = buttons;
     bw_ui.keys = keys;
     plat_unlock(lock);
@@ -907,7 +944,6 @@ static const char *bw_preset_hint(void)
 {
     static const char *const sub_n[5] = {"", "PAGE 1/2", "PAGE 2/2", "", ""};
     static const char *const sub4[4] = {"PAGE 1/4", "PAGE 2/4", "PAGE 3/4", "PAGE 4/4"};
-    static const char *const sub3[3] = {"PAGE 1/3", "PAGE 2/3", "PAGE 3/3"};
     unsigned sub = bw_ui.sub[bw_ui.page];
     switch (bw_ui.page)
     {
@@ -933,7 +969,7 @@ static const char *bw_preset_hint(void)
     case BW_ARP:
         return "PRESET: MODE";
     case BW_GLOBAL:
-        return sub3[sub % 3];
+        return sub4[sub % 4];
     default:
         return sub_n[1 + sub % 2];
     }
@@ -1137,6 +1173,7 @@ static void bw_draw_algorithm(const bw_patch *p, int32_t y0, int32_t h, unsigned
     }
 }
 #include "bw_river_ui.c"
+#include "bw_free_ui.c"
 
 static void bw_draw_page(uint32_t ms)
 {
@@ -1437,7 +1474,7 @@ static void bw_draw_page(uint32_t ms)
             bw_kcell(&kc[2], "CLIP LVL", bw_pref.clip_level, 100, 0);
             bw_kcell(&kc[3], "AUTOSAVE", bw_pref.autosave, 1, bw_pref.autosave ? "ON" : "OFF");
         }
-        else
+        else if(sub==2)
         {
             /* the four slots as boxes: this one lit, the chosen one outlined */
             for (unsigned i = 0; i < 4; i++)
@@ -1455,6 +1492,17 @@ static void bw_draw_page(uint32_t ms)
             bw_kcell(&kc[2], "SAVE", 0, 0, "RIGHT");
             bw_kcell(&kc[3], "MIDI OUT", bw_pref.midi_out, 1, bw_pref.midi_out ? "CH 1-4" : "OFF");
         }
+        if(sub==3)
+        {
+            T(24,62,&FONT_B,"PERFORMANCE",C_TXT);
+            T(24,92,&FONT_XS,"RIVER / ONE KEYBOARD VOICE",C_MUTE);
+            T(24,114,&FONT_XS,"FREE / SELECT AN OPERATOR",C_MUTE);
+            T(24,148,&FONT_T,"FREE PLAY USES ALL 27 KEYS",C_MUTE);
+            bw_kcell(&kc[0],"MODE",bw.mode,1,bw.mode==BW_MODE_FREE ? "FREE":"RIVER");
+            bw_kcell(&kc[1],"RIVERKEY",bw.keyboard_unlocked,1,bw.keyboard_unlocked ? "ALL 27":"SCALE");
+            bw_kcell(&kc[2],"VOICE",bw.live_track,3,bw_layers[bw.live_track]);
+            bw_kcell(&kc[3],"OCTAVE",bw.live_oct+2,4,0);bw_num(kc[3].value,bw.live_oct);
+        }
         bw_knob_bar(kc, C_YEL);
         return;
     default:
@@ -1464,7 +1512,7 @@ static void bw_draw_page(uint32_t ms)
              "PLAY / START OR PAUSE", "REC / PLACE, LIFT OR HOOK", "SELECT OR K1 / REEL", "SAVE / KEEP SESSION"},
             {"HOME / RIVER, THEN CATCH LOG", "LOG + PRESET / FIELD GUIDE", "SEQ / LINE, THEN MOTIF",
              "EDIT / FM, AGAIN FOR NEXT PAGE", "ENV / ENVELOPE   LFO / MODULATION", "FX / SPACE   ARP / ARPEGGIATOR",
-             "WHITE KEYS PLAY / BLACK KEYS BEND", "MASTER / LEVEL   OCT- OCT+ / RANGE"}};
+             "GLO PAGE 4 / FREE PLAY, ALL KEYS", "FREE SELECT / OP   ALGO / VOICE"}};
         for (unsigned i = 0; i < 8; i++)
             T(6, 52 + (int32_t)i * 20, &FONT_XS, help[sub][i], i % 2 ? C_TXT : C_MUTE);
         T(4, 218, &FONT_XS, "BLACKWATER " APP_VERSION, C_MUTE);
@@ -1501,7 +1549,9 @@ static void bw_draw(void)
     {
         bw_oy = (int32_t)band * 48;
         cv_begin(240, 48, C_BG);
-        if (bw.river.enabled && (bw_ui.page == BW_RIVER || bw_ui.page == BW_FISHING))
+        if(bw.mode==BW_MODE_FREE && bw_ui.page==BW_RIVER)
+            bw_draw_free_play();
+        else if (bw.river.enabled && (bw_ui.page == BW_RIVER || bw_ui.page == BW_FISHING))
             bw_draw_river_scene(ms, bw_ui.page == BW_FISHING);
         else if (band == 0)
             bw_header(bw_pages[bw_ui.page], bw_ui.page == BW_FX || bw_ui.page == BW_SCALE || bw_ui.page == BW_GLOBAL
@@ -1519,7 +1569,7 @@ static void bw_draw(void)
     uint32_t leds = (bw.playing ? 1u << B_PLAY : 0) | (bw_ui.dirty ? 1u << B_SAVE : 0) |
                     (any_bite && (ms / 150u) % 2u ? 1u << B_REC : 0) | (bw.arp ? 1u << B_ARP : 0);
     uint32_t keyleds = bw_ui.keys;
-    if (bw.playing)
+    if (bw.playing && bw.mode==BW_MODE_RIVER)
         keyleds |= 1u << white[(bw.step[k] + bw.track[k].cur.len - 1) % bw.track[k].cur.len % 16];
     plat_unlock(lock);
     plat_leds(leds, keyleds);
@@ -1566,11 +1616,14 @@ int app_expect(const char *what, int *got)
 {
     unsigned k = bw_ui.track;
     const bw_track *t = &bw.track[k];
-    unsigned notes = 0, active = 0;
+    unsigned notes = 0, active = 0, held = 0;
     for (unsigned i = 0; i < t->cur.len; i++)
         notes += t->cur.s[i].gate == BW_GATE_NOTE;
     for (unsigned i = 0; i < BW_VOICES; i++)
+    {
         active += bw.voice[i].active;
+        held += bw.voice[i].active && bw.voice[i].live && bw.voice[i].held;
+    }
     uint32_t catches = 0, rares = 0;
     for (unsigned i = 0; i < BW_SPECIES; i++)
     {
@@ -1582,10 +1635,21 @@ int app_expect(const char *what, int *got)
         const char *name;
         int value;
     } checks[] = {{"track", (int)k},
+                  {"mode",bw.mode}, {"unlocked",bw.keyboard_unlocked}, {"keyboard_full",bw_keyboard_full(&bw)},
+                  {"keyboard_layer",bw.live_track}, {"life",bw.river.life},
+                  {"held",(int)held}, {"physical_note",bw.key_note[0]}, {"black_note",bw.key_note[1]},
+                  {"meteors",(int)bw.river.life_count[BW_LIFE_METEOR]},
+                  {"ufos",(int)bw.river.life_count[BW_LIFE_UFO]},
+                  {"jumps",(int)bw.river.life_count[BW_LIFE_JUMP]},
+                  {"leaves",(int)bw.river.life_count[BW_LIFE_LEAF]},
+                  {"bees",(int)bw.river.life_count[BW_LIFE_BEE]},
+                  {"fireflies",(int)bw.river.life_count[BW_LIFE_FIREFLY]},
+                  {"motif_notes",(int)bw.river.motif_notes},
                   {"river_phase", bw.river.phase},
                   {"river_bloom", (int)(bw.river.bloom * 100)},
                   {"world", bw.river.world},
                   {"river_line", bw.river.line},
+                  {"line_state",bw_fish_state(&bw,bw.river.line)},
                   {"river_memory", bw.river.memory},
                   {"page", bw_ui.page},
                   {"sub", bw_ui.sub[bw_ui.page]},

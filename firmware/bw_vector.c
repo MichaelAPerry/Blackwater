@@ -303,6 +303,8 @@ static void bw_vector_atmosphere(uint32_t t,float bloom,unsigned scene_ink)
     bw_vector_opacity=scene_ink;
 }
 
+#include "bw_life_ui.c"
+
 static void bw_vector_river(uint32_t t, float bloom, unsigned world)
 {
     (void)world;
@@ -345,4 +347,5 @@ static void bw_vector_river(uint32_t t, float bloom, unsigned world)
         }
     }
     bw_vector_opacity=scene_ink;
+    bw_vector_life();
 }

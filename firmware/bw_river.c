@@ -8,6 +8,7 @@ void bw_river_enable(bw_engine *e)
     e->river.duck = 1.0f;
     e->river.noise = 0x72697665u;
     e->river.modulation_rng = 0x77617465u;
+    bw_life_init(e);
     for (unsigned k = 0; k < 4; k++)
         e->river.note_at[k] = e->river.ms + k * 2300u;
 }
@@ -82,6 +83,7 @@ static void bw_river_control(bw_engine *e)
 {
     bw_river_state *r = &e->river;
     unsigned k = r->line;
+    if(e->mode==BW_MODE_FREE) return;
     r->ms += 10;
     int state = e->hooked_state[k];
     if (r->phase <= BW_RIVER_GROW)
@@ -183,6 +185,11 @@ static void bw_river_control(bw_engine *e)
     for (unsigned layer = 0; layer < 4; layer++)
         if ((int32_t)(r->ms - r->note_at[layer]) >= 0)
         {
+            if(bw_keyboard_full(e) && layer==e->live_track)
+            {
+                r->note_at[layer]=r->ms+1000u;
+                continue;
+            }
             static const uint32_t spacing[4] = {12000u, 17000u, 21000u, 9000u};
             static const int8_t degrees[8] = {0, 4, 7, 2, 0, 9, 4, -3};
             unsigned j = (r->ms / spacing[layer] + layer + r->memory) % 8;
@@ -210,6 +217,7 @@ static void bw_river_control(bw_engine *e)
                 interval *= 2u;
             r->note_at[layer] = r->ms + interval;
         }
+    bw_life_tick(e);
 }
 
 /* Two stereo bands of filtered noise alongside FM. Independent PRNG keeps texture/sample rate from
@@ -222,7 +230,7 @@ static void bw_river_texture(bw_engine *e, float *l, float *right)
     r->texture_r += (-x - r->texture_r) * (0.009f+r->wind*0.012f);
     r->body_l += (r->texture_l - r->body_l) * 0.001f;
     r->body_r += (r->texture_r - r->body_r) * 0.0013f;
-    float level = e->playing ? (r->world == BW_WORLD_UNDERTOW ? 0.15f : 0.055f) : 0;
+    float level = e->playing && e->mode==BW_MODE_RIVER ? (r->world == BW_WORLD_UNDERTOW ? 0.15f : 0.055f) : 0;
     level *= 0.25f + r->bloom + r->pressure * 0.7f;
     /* Sample-rate smoothing avoids a discontinuity when the strike clears the mix. */
     r->duck += ((r->phase == BW_RIVER_STRIKE ? 0.30f : 1.0f) - r->duck) * 0.00008f;

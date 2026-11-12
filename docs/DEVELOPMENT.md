@@ -13,10 +13,24 @@ antialiased subpixel strokes and the persistent water curves, using fm1-base's e
 no longer generates/includes bw_art.h. `make_line_font.py` generates the original monoline typeface after the
 platform font step through the supported app-generator hook. No platform files are changed. Old artwork/import tools remain archived and independently testable.
 `bw_engine.h` adds runtime state only. The stored song/track/patch/log layouts and version remain unchanged.
-World and memory use the two previously reserved preference bytes. Existing sessions keep their patches and
+The first reserved preference byte packs world (bits 0–1), river full keys (2), FREE mode (3), keyboard layer
+(4–5); the second retains harmonic memory (0–8). Old world values 0–2 remain compatible. Existing sessions keep their patches and
 motifs; loading a new sound world is explicit. The real v0.3 backup fixture tests restore, patch-library load,
 save, and reboot. `river_test.c` covers clocks, grace/recovery, audio, no overlapping lines, and ten minutes of
 listening. `river_simulator.txt` exercises real input and progression while editing.
+
+`bw_keyboard.c` tracks physical-key ownership across mapping, octave, layer and mode changes. The arpeggiator
+supports 27 keys. `bw_free_ui.c` presents the complete FM voice and selected edit operator; no additional sound
+engine is introduced. An unlocked river layer is reserved for live playing; background allocation never steals
+a held key. Live performance still shares eight voices, using the existing oldest-voice stealing when necessary.
+
+`bw_life.c` schedules sparse events with its own RNG, elapsed-time clock and a single active actor. `bw_life_ui.c`
+draws that state with the shared vector primitives. A star motif reserves at most one FM voice, is in the current
+harmony, honours mute/solo/level and yields to the keyboard. Actor timing/visual randomness does not touch fish
+RNG. `performance_test.c` checks all keys/arp, note ownership, quiet FREE mode, voice priority, motif and fish
+independence; `performance_simulator.txt` tests panel controls/save/reboot; `keyboard_encounter.txt` holds a live
+key through hooking a fish without changing the performer's layer; `life_simulator.txt` runs over twenty
+minutes of natural scheduling, exercising all six actors including the UFO.
 
 See [River review](RIVER_REVIEW.md) for artifacts, exact limits and current controls. The earlier source-map and
 sound-design notes below describe the prior version where they refer to fixed fish roles or rapid sequencer steps.

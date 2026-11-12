@@ -1,5 +1,30 @@
 # BLACKWATER project record
 
+## Living river and keyboard performance, approved 2026-11-12
+
+The user requested shooting stars with their own motif, rare UFOs, jumping fish, windblown leaves, a bee and
+a firefly; an unlockable full keyboard playing one fishing-mode voice; and free play with SELECT choosing an
+operator. Implemented in the existing firmware/host, retaining the six-operator core and line-drawing style.
+
+One occasional actor animates at a time, with space between events. Stars play a generated four-note motif
+twice through an available FM layer, in the current harmony. Motifs share the actual voice pool and yield to
+held keys. Wildlife uses an independent random stream, pauses with PLAY, and clears for approach/encounter/
+recovery. Bees prefer daylight/dusk; fireflies prefer dusk/night (or the FIREFLIES world). The first UFO waits
+15–20 minutes; later visits wait another 20–35 minutes. Jumping fish are visual wildlife, not catches.
+
+GLOBAL page 4 selects RIVER/FREE, unlocks all 27 chromatic keys in RIVER, chooses the keyboard layer, and sets
+octave. ALGO also chooses that layer. The unlocked layer yields its ambient part to the player; other layers
+and fishing continue. FREE always uses all 27 keys and has no autonomous river music or fishing. On its home
+screen, SELECT chooses one of six FM operators, ALGO chooses the complete voice, PRESET loads a factory/user
+patch, and K1–K4 edit ratio/level/feedback/algorithm. Keys play the full voice; operator selection chooses the
+operator being edited. Keys remember their original pitch/layer through octave and layer changes.
+
+Runtime state and spare preference bits preserve v0.3 session/patch/log byte layouts and version. Mode, river
+key unlock and keyboard layer survive SAVE/reboot. Host panel scenarios and UBSan engine tests cover these
+behaviours, all six natural event types, star audio, independent fish outcomes and the full-key arpeggiator.
+Review generation: `tools/render_living_review.py`; device/Wasm/browser/hardware checks retain the toolchain
+limitations documented below. Local changes are not a publication or deployment.
+
 ## Atmosphere, typography, species and FM controls, 2026-11-12
 
 The user liked the line-art direction and requested wind, stars, more shapes, music-linked colour movement and

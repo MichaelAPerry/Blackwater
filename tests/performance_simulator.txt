@@ -1,0 +1,91 @@
+# Actual panel controls, full-key ownership, operator editing, mode and key-map persistence.
+wait 600
+tap GLO
+turn PRESET 3
+expect sub 3
+turn K2 1
+turn K3 2
+expect mode 0
+expect unlocked 1
+expect keyboard_layer 2
+shot performance-settings.png
+tap HOME
+key 1 down
+expect held 1
+expect black_note 54
+expect macros 0
+turn ALGO 1
+tap OCT+
+key 1 up
+expect held 0
+tap OCT-
+tap GLO
+turn K1 1
+expect mode 1
+expect keyboard_full 1
+tap HOME
+expect page 0
+expect operator 0
+turn SELECT 2
+expect operator 2
+expect page 0
+turn K1 3
+turn K2 -7
+turn K3 5
+expect feedback 5
+turn K4 1
+wav free-play.wav
+key 0 down
+expect physical_note 53
+key 1 down
+expect black_note 54
+expect held 2
+wait 1500
+shot free-play.png
+turn SELECT 1
+expect operator 3
+key 0 up
+key 1 up
+expect held 0
+turn PRESET 1
+turn ALGO -1
+key 26 down
+wait 1500
+key 26 up
+wait 1200
+wavstop
+expect peak_db_min -45
+expect catches 0
+expect life 0
+tap EDIT
+turn SELECT 1
+expect page 5
+expect operator 4
+tap SAVE
+wait 300
+reboot
+wait 600
+expect mode 1
+expect unlocked 1
+expect keyboard_layer 2
+expect keyboard_full 1
+expect state 0
+tap GLO
+turn PRESET 3
+turn K1 -1
+expect mode 0
+expect unlocked 1
+expect line_state 1
+tap HOME
+key 1 down
+expect black_note 54
+expect held 1
+tap GLO
+turn K2 -1
+expect held 0
+expect keyboard_full 0
+key 1 up
+key 1 down
+expect macros 1
+key 1 up
+expect macros 0
