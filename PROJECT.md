@@ -16,6 +16,11 @@ saved catch records and tempo, Free operator selection and a chromatic black key
 mobile layout, real video playback, media and installer/package consistency. Physical FM-1 testing remains the
 owner's next step; no hardware claim is made from host/browser checks.
 
+2026-11-13: the first codex/** Pages run failed its Chromium gate because the browser check zeroed the waits
+before selecting LISTEN; a zero wait starts an encounter at once and the firmware (correctly) locks the mode
+mid-encounter, so the line stayed on FISH and only missed. The check now selects LISTEN first, matching
+tests/simulator.txt. Firmware unchanged; native, Node-Wasm and Chromium site gates pass locally.
+
 ## Notes drive downstream flow, approved 2026-11-12
 
 The user corrected the anchored water rows: notes should push flow down the river. This supersedes the older

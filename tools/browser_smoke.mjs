@@ -155,9 +155,10 @@ try {
     log('river audio', {rms: playing});
 
     await press('0'); // SEQ -> line settings.
+    // FISH -> LISTEN first: the firmware locks the mode once an encounter begins, and a zero wait begins one at once.
+    await wheel(1121, 120, -1);  // retain the real approach/strike/fight/reveal timings.
     await wheel(935, 120, -25);  // minimum wait -> 0 (five seconds per detent).
     await wheel(1028, 120, -50); // maximum wait -> 0.
-    await wheel(1121, 120, -1);  // FISH -> LISTEN: retain the real approach/strike/fight/reveal timings.
     await shot('line-listen-zero-wait');
     await press('7'); await press('7'); // Catch log: the encounter continues off-page.
     let caught = false;
