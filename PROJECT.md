@@ -1,5 +1,151 @@
 # BLACKWATER project record
 
+## Website, release 0.4 and main/Pages publication, approved 2026-11-12
+
+The user explicitly authorized updating the website and README, then merging to main so Pages publishes the
+installer for their own FM-1 test. This supersedes the earlier publication hold for these changes. The website
+now presents the current flowing line-art river, nature/lighting, eight fish and full-key/Free performance, using
+actual native-host screenshots and recording. `site/media.json` records their provenance; no physical-device
+footage or replacement emulator is represented. The README reflects current controls and installation.
+
+Pages release version is 0.4; the v0.3 session format remains unchanged. Review-branch/PR builds validate but do
+not deploy; pushes to main build and publish automatically after all checks. The installer uses the exact build's
+content-hashed package URL, retaining the platform's identity/CRC and transfer logic. Native/Wasm/Chromium gates
+remain mandatory. Browser checks now exercise actual world/FM controls, an unattended encounter while off-page,
+saved catch records and tempo, Free operator selection and a chromatic black key. Landing checks cover desktop/
+mobile layout, real video playback, media and installer/package consistency. Physical FM-1 testing remains the
+owner's next step; no hardware claim is made from host/browser checks.
+
+2026-11-13: the first codex/** Pages run failed its Chromium gate because the browser check zeroed the waits
+before selecting LISTEN; a zero wait starts an encounter at once and the firmware (correctly) locks the mode
+mid-encounter, so the line stayed on FISH and only missed. The check now selects LISTEN first, matching
+tests/simulator.txt. Firmware unchanged; native, Node-Wasm and Chromium site gates pass locally.
+
+## Notes drive downstream flow, approved 2026-11-12
+
+The user corrected the anchored water rows: notes should push flow down the river. This supersedes the older
+fixed sixteen-curve/four-at-rest presentation. Each audible FM note start now launches a coloured crest upstream
+and briefly strengthens the current carrying existing crests. The projected crests travel towards the viewer,
+widen with the shore perspective, leave wakes and dissolve in the foreground. Pitch shapes their curvature/span;
+velocity and layer level shape strength. A close chord reinforces one crest. Faint current moves between notes.
+No surface row stays anchored; banks and ground remain stable. Musical bloom opens colour, bending and wakes,
+then encounter/recovery settle those while notes keep moving. Keyboard, generative and shooting-star notes use
+the same actual FM trigger; silent layers and FREE do not emit river crests. PLAY freezes all river movement.
+
+The fixed pool of 24 runtime impulses and five-band projected geometry cache introduce no framebuffer, allocation,
+audio change, encounter RNG or saved-layout change. The engine advances flow independently of the displayed page.
+Tests cover downstream/widening motion, current acceleration, finite pool/expiry, chord reinforcement, mute/FREE,
+and pause. Host image checks track one real keyboard crest from upstream to foreground and verify frozen pixels
+on pause; visual growth/recovery checks now assess colour rather than a fixed count of water rows.
+Review: `tools/render_flow_review.py` records isolated-note, keyboard/current and encounter clips through the actual
+firmware and host audio. Device/browser/hardware verification retains the documented toolchain limitations.
+
+## Riverbanks, reactive colour and nature sound, approved 2026-11-12
+
+The user requested more wildlife detail and passing sounds, splashes/wind, more reactive psychedelic colour,
+defined banks/ground/grass, crickets/cicadas and a daylight scene. Added these within the existing line-art
+firmware and host simulator. The established AUTO weather order remains day → dusk → night → storm, three
+minutes per stage; explicit weather is still selected on GLOBAL page 1 / K3.
+
+Stable curved banks, a second water-edge stroke, land contours and wind-bent grass define the river. All sixteen
+water curves end inside the shared shore geometry. More saturated flowing colours now follow actual played
+pitches (including live keys and star motifs), note attacks and measured layer energy with faster attack/slower
+release. Musical bloom still adds the detail; strike/fight/recovery reduce saturation and complexity for clarity.
+
+The light state crossfades the background, sun/clouds, crescent/stars and insects. Stopped weather edits preview
+immediately; changing weather during play fades smoothly. Cicadas rattle/swell in daylight, crickets call in
+spaced groups at dusk/night, and both retreat in storms and during encounters. Procedural nature audio adds
+stereo gust/rustle, takeoff/landing splashes, bee buzz, UFO hum, star air and firefly tones synchronized to its glow.
+These small sources accompany the existing texture without using FM voices or encounter randomness. FREE has
+no autonomous nature bed. Actor drawings add droplets/ripples, leaf veins, bee anatomy/wings and UFO detailing.
+
+UBSan engine/host checks cover sound sources, day/night selection, fades, two splash timestamps, pause/FREE
+silence, live-key preservation and unchanged fish outcomes. The existing save format, platform and emulator
+remain unchanged. `tools/render_living_review.py --nature` records the actual firmware for review, including
+day/night sound-only WAVs with the ordinary mixer turned down. Device/browser/hardware checks retain the
+documented toolchain limitations; nothing is published or deployed.
+
+## Living river and keyboard performance, approved 2026-11-12
+
+The user requested shooting stars with their own motif, rare UFOs, jumping fish, windblown leaves, a bee and
+a firefly; an unlockable full keyboard playing one fishing-mode voice; and free play with SELECT choosing an
+operator. Implemented in the existing firmware/host, retaining the six-operator core and line-drawing style.
+
+One occasional actor animates at a time, with space between events. Stars play a generated four-note motif
+twice through an available FM layer, in the current harmony. Motifs share the actual voice pool and yield to
+held keys. Wildlife uses an independent random stream, pauses with PLAY, and clears for approach/encounter/
+recovery. Bees prefer daylight/dusk; fireflies prefer dusk/night (or the FIREFLIES world). The first UFO waits
+15–20 minutes; later visits wait another 20–35 minutes. Jumping fish are visual wildlife, not catches.
+
+GLOBAL page 4 selects RIVER/FREE, unlocks all 27 chromatic keys in RIVER, chooses the keyboard layer, and sets
+octave. ALGO also chooses that layer. The unlocked layer yields its ambient part to the player; other layers
+and fishing continue. FREE always uses all 27 keys and has no autonomous river music or fishing. On its home
+screen, SELECT chooses one of six FM operators, ALGO chooses the complete voice, PRESET loads a factory/user
+patch, and K1–K4 edit ratio/level/feedback/algorithm. Keys play the full voice; operator selection chooses the
+operator being edited. Keys remember their original pitch/layer through octave and layer changes.
+
+Runtime state and spare preference bits preserve v0.3 session/patch/log byte layouts and version. Mode, river
+key unlock and keyboard layer survive SAVE/reboot. Host panel scenarios and UBSan engine tests cover these
+behaviours, all six natural event types, star audio, independent fish outcomes and the full-key arpeggiator.
+Review generation: `tools/render_living_review.py`; device/Wasm/browser/hardware checks retain the toolchain
+limitations documented below. Local changes are not a publication or deployment.
+
+## Atmosphere, typography, species and FM controls, 2026-11-12
+
+The user liked the line-art direction and requested wind, stars, more shapes, music-linked colour movement and
+replacement typography. They also asked whether all fish and the FM editing buttons/screens were present.
+
+Added a sparse star field, constellation strokes, wind traces and reeds. Shared wind state opens the actual air
+texture's filter; actual played pitches, modulation, feedback and measured layer energy steer a smoothed colour
+field travelling along the water. It settles with the existing musical bloom and pauses with the music. Visual
+randomness does not alter fish selection. The old Barlow face is replaced by an original monoline instrument
+alphabet in all six font roles; lowercase notation remains distinct for minor/major chord labels.
+
+All eight species retain their encounter data and now have individually distinct geometry/markings. The field
+guide is CATCH LOG / PRESET page 3, common species beside rare cousins. FM screens use the same typeface and
+number the six operators. Their original hardware mapping and shared six-operator core remain in place.
+The audit found ratio/fixed-Hz changes did not update held voices; they now do without retriggering the envelope.
+Existing v0.3 saved layouts remain unchanged. Tests exercise actual hardware inputs across operator, frequency,
+routing, envelope, LFO, effects and patch pages, plus held-note changes and all eight guide drawings.
+
+## Line-art direction and flow revision, approved 2026-11-12
+
+The user requested a complete firmware art change: OP-1-like line drawing for the river, water, rod, fish,
+Jeremy-inspired portrait and all other surfaces, replacing sprites. Subsequent feedback asked for a slicker,
+more coherent result with better flow between elements. This supersedes the earlier pixel-art presentation.
+
+The firmware now draws original geometry directly into the platform canvas. Raster art generation and sprite
+rendering have been removed from the application; original source images remain archived. A fixed sixteen-curve
+water family fades detail in without repositioning existing curves. Subpixel antialiasing, eased ink/trace,
+consistent 24-pixel scene margins, a shared focal point and a 25 fps target support continuous transitions.
+The rod/portrait draw in; the fish rises from the line while the rod recedes; labels arrive afterward and fade
+back to water, without a cutout catch card. The recovery no longer grows a second visual/musical bloom.
+
+The portrait remains an original line interpretation, displayed on rare strikes alongside the supplied speech.
+Tests cover actual panel-driven rare encounters, visual density/return, host controls, audio and v0.3 persistence.
+Device/browser/hardware performance remains unverified under the existing toolchain download blocker. No
+publication or deployment has been performed. Listening and visual approval remain the owner's decision.
+
+## River redesign approved 2026-11-12
+
+The user approved the salvage/redesign plan and requested deeper, psychedelic art: a minimal river grows with
+the sound, comes together in sharp clarity when the fish strikes, then dissolves back to the river. Ambient music
+and tense fishing encounters replace the fixed four-fish band as the primary experience. Casting remains open;
+the first implementation uses direct line placement. Retain the real firmware, platform and emulator.
+
+Implemented for review: three sound worlds; shared elapsed-time encounter phases; one active line with weighted
+selection across all eight species; slow FM gestures and filtered noise; a musical/visual growth envelope;
+strike ducking and rare-only speech; clear fight/reveal screens; a thirty-second return before the next wait.
+Existing v0.3 binary save layouts are unchanged, including restoration of saved user patches and catch records.
+Spare preference bytes hold world and harmonic memory. The old motif/patch editor remains available; motifs
+unfold slowly instead of as the old fish-specific rhythmic parts. The new composition and sound await the user's
+listening/play judgment. No deployment is authorized by this implementation request.
+
+Validation and review commands: `docs/RIVER_REVIEW.md`. Prior sections below record the earlier product and
+historical build evidence; they do not certify the redesigned package. In this cloud instance the device toolchain
+and SDK download domains still return proxy 403, and Emscripten is absent. Host validation is separate from actual
+package/native/Wasm/browser/hardware validation.
+
 ## Approved requirements and user decisions
 
 - The user is product owner, creative director and final decision-maker. Research
@@ -18,7 +164,7 @@
 - User explicitly chose BOTH fishing modes: automatic catches and variable wait
   followed by a timed player action.
 - Jeremy Wade "fish on" clip: the user will supply it (under 12 seconds, possibly 1 s) and takes responsibility
-  for its use; it plays for **rare fish only**. No clip is in the repository yet.
+  for its use; it plays for **rare fish only**. The supplied clip is now in the repository (older note corrected 2026-11-12).
 - 2026-11-04, the user approved **the whole expanded feature set** in `docs/history/FEATURE_PROPOSAL.md` (A1–A6, B1–B7,
   C1–C6, D1–D4, E), plus **effects**, an audit of the keys with FM manipulation on keys left blank, and **rare fish
   in each slot**: Crappie (bluegill slot), Peacock Bass (bass), Brook Trout (brown trout), Flathead Catfish

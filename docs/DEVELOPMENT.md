@@ -5,6 +5,54 @@ Use the existing checkout. Do not create another emulator or a worktree for norm
 does for a player: [MANUAL.md](MANUAL.md). The device build and the emulator/browser evidence:
 [PACKAGE_EMULATION.md](PACKAGE_EMULATION.md).
 
+## River review build (2026-11-12)
+
+`bw_river.c` (included by the engine) coordinates elapsed-time phases and musical gestures; `bw_river_ui.c`
+(included by the app) coordinates the visual transitions. `bw_vector.c` supplies geometry, fixed-point
+antialiased subpixel strokes and the stable shoreline, using fm1-base's existing band canvas. The firmware
+no longer generates/includes bw_art.h. `make_line_font.py` generates the original monoline typeface after the
+platform font step through the supported app-generator hook. No platform files are changed. Old artwork/import tools remain archived and independently testable.
+`bw_engine.h` adds runtime state only. The stored song/track/patch/log layouts and version remain unchanged.
+The first reserved preference byte packs world (bits 0–1), river full keys (2), FREE mode (3), keyboard layer
+(4–5); the second retains harmonic memory (0–8). Old world values 0–2 remain compatible. Existing sessions keep their patches and
+motifs; loading a new sound world is explicit. The real v0.3 backup fixture tests restore, patch-library load,
+save, and reboot. `river_test.c` covers clocks, grace/recovery, audio, no overlapping lines, and ten minutes of
+listening. `river_simulator.txt` exercises real input and progression while editing.
+
+`bw_keyboard.c` tracks physical-key ownership across mapping, octave, layer and mode changes. The arpeggiator
+supports 27 keys. `bw_free_ui.c` presents the complete FM voice and selected edit operator; no additional sound
+engine is introduced. An unlocked river layer is reserved for live playing; background allocation never steals
+a held key. Live performance still shares eight voices, using the existing oldest-voice stealing when necessary.
+
+`bw_life.c` schedules sparse events with its own RNG, elapsed-time clock and a single active actor. `bw_life_ui.c`
+draws that state with the shared vector primitives. A star motif reserves at most one FM voice, is in the current
+harmony, honours mute/solo/level and yields to the keyboard. Actor timing/visual randomness does not touch fish
+RNG. `performance_test.c` checks all keys/arp, note ownership, quiet FREE mode, voice priority, motif and fish
+independence; `performance_simulator.txt` tests panel controls/save/reboot; `keyboard_encounter.txt` holds a live
+key through hooking a fish without changing the performer's layer; `life_simulator.txt` runs over twenty
+minutes of natural scheduling, exercising all six actors including the UFO.
+
+`bw_nature.c` adds fixed-state procedural air/splash/buzz/glint/cricket/cicada sources after the existing FX bus,
+before master gain and strike ducking. Its envelope targets update on the 10 ms river clock; sample-rate ramps
+avoid clicks. It uses the texture noise stream, separate from wildlife and encounter randomness. A maximum of
+five small oscillators (only when audible) adds insect/wing/ringing detail without allocating FM voices. The
+existing master still controls all audio. The light/insect state fades with weather; FREE disables the bed.
+`nature_test.c` checks real audio, insect selection, lighting transitions, event sources, splash timing and
+pause/FREE silence. `nature_simulator.txt` exercises weather preview, in-play crossfade and saved light state.
+Water/grass use the same stable shore geometry; colour reads actual note-on pitches/attacks and output energy.
+
+`bw_flow.c` hooks actual FM starts into a fixed pool of 24 runtime crests and a short current impulse. The river's
+10 ms clock advects the pool and faint background current independently of the UI page; pause freezes it, FREE/
+world switches clear it. Muted/zero-level/silent-carrier notes do not emit; close chords reinforce a single crest.
+`bw_flow_project` supplies shared bank/water perspective. `bw_flow_ui.c` replaces the anchored grid with moving
+heads/wakes and caches projected subpixel vertices for reuse across the five bands. It adds no full framebuffer.
+`flow_test.c` checks actual note emission, downstream widening, acceleration, pause/expiry and pool bounds;
+`flow_simulator.txt`/`flow_visual_test.py` verify one real keyboard crest moves down the displayed river and freezes
+on pause. Geometry remains sparse; colour growth/recovery replaces the old fixed-row density assertion.
+
+See [River review](RIVER_REVIEW.md) for artifacts, exact limits and current controls. The earlier source-map and
+sound-design notes below describe the prior version where they refer to fixed fish roles or rapid sequencer steps.
+
 ## Setup and tests
 
 Requires a C99 compiler, Git, Python 3 with venv/pip. From the repository root:
@@ -49,8 +97,20 @@ python3 tests/package_metadata_test.py
 
 ## Public builds
 
-`BW_PUBLIC_SAFE=1 ./build.sh` leaves out the fish-on clip and the portrait (the Pages workflow sets it) until
-their owners give permission: see [RIGHTS.md](RIGHTS.md).
+The user authorized the 0.4 website update, merge to main and Pages installer deployment on 2026-11-12.
+`site/index.html`/`style.css` contain the landing presentation. `tools/site_content.py` assembles it and the
+unchanged platform installer/backup/manual; the installer fetches the same content-hashed package as the emulator.
+`tools/capture_site_media.py` refreshes actual host screenshots/recording and `site/media.json` provenance.
+`tools/preview_site.py` creates a clearly labelled landing-only preview with no installer or replacement emulator.
+`tests/site_test.py` checks content, native-size media and installer identity/URL contracts. Browser landing checks
+are in `tools/site_smoke.mjs`; release builds also run the full actual-package controls/audio/storage test.
+
+Pushes to `codex/**` and PRs run the build checks; only main can deploy. The release workflow sets version 0.4.
+Device compilation and memory checks, native/Wasm emulation, and Chromium all remain required before Pages upload.
+
+Pages uses `BW_PUBLIC_SAFE=0` under the owner's recorded inclusion decision: see [RIGHTS.md](RIGHTS.md).
+`BW_PUBLIC_SAFE=1 ./build.sh` suppresses the supplied speech clip; the procedural line portrait is part of the
+current scene drawing.
 
 ## Design notes
 

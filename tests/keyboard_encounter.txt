@@ -1,0 +1,26 @@
+# Hooking a fish on line 0 must not take the unlocked performer's layer 2 away.
+wait 600
+tap SEQ
+turn K1 -100
+turn K2 -300
+tap GLO
+turn PRESET 3
+turn K2 1
+turn K3 2
+tap HOME
+tap PLAY
+key 0 down
+wait 12500
+expect line_state 2
+expect keyboard_layer 2
+expect held 1
+tap REC
+expect line_state 3
+expect river_phase 3
+expect track 2
+expect keyboard_layer 2
+wait 1700
+expect river_phase 4
+expect held 1
+key 0 up
+expect held 0

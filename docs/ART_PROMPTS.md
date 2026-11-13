@@ -1,3 +1,6 @@
+> Historical pixel-art prompts. Superseded for the firmware on 2026-11-12 by the approved procedural
+> [line-art system](LINE_ART.md). These original assets remain archived; they are not rendered in the current app.
+
 # Art prompts (ChatGPT image generation)
 
 Prompts for BLACKWATER's device pixel art and its website art. The FM-1 screen is 240 × 240 pixels (RGB565);

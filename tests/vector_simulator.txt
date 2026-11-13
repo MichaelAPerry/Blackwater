@@ -1,0 +1,31 @@
+# The same real firmware states as the river tests, captured for line-art review.
+wait 600
+tap PLAY
+wait 6000
+shot vector-quiet.png
+tap PLAY
+tap SEQ
+turn K1 -100
+turn K2 -300
+turn K3 -1
+tap HOME
+tap PLAY
+wait 9500
+expect river_phase 2
+shot vector-growth.png
+wait 2000
+shot vector-color-flow.png
+wait 900
+expect river_phase 3
+shot vector-strike.png
+wait 1900
+expect river_phase 4
+shot vector-fight.png
+wait 15500
+expect river_phase 5
+shot vector-reveal-enter.png
+wait 1600
+shot vector-reveal.png
+wait 33400
+expect river_phase 6
+shot vector-return.png

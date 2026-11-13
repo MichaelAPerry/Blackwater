@@ -3,16 +3,16 @@ wait 600
 expect valid 1
 expect playing 0
 expect page 0
-# every line starts in the water, TIMED
+# one line starts in the water; musical layers are independent
 expect hooked 1
 expect manual 1
 shot river.png
-# the river is the mixer: K1 the bluegill's level; PRESET the weather
+# K1 controls the current layer; PRESET selects a sound world while stopped
 expect volume 72
 turn K1 5
 expect volume 82
 turn PRESET 1
-expect weather 1
+expect world 1
 # FM edit: an operator's level, then a white key plays the fish through the firmware's own render.
 tap EDIT
 expect page 5
@@ -20,7 +20,7 @@ turn K2 -10
 expect level 75
 key 12 down
 wav audition.wav
-wait 400
+wait 1600
 wavstop
 expect peak_db_min -40
 key 12 up
@@ -77,7 +77,7 @@ key 1 down
 expect macros 1
 key 1 up
 expect macros 0
-# Fishing, automatic, no wait: catches change the theme.
+# Listening mode still has approach, strike, fight, reveal and recovery.
 tap SEQ
 expect page 1
 turn K3 -1
@@ -90,13 +90,15 @@ expect hooked 1
 tap PLAY
 expect playing 1
 wav fishing.wav
-wait 1500
+wait 31000
 wavstop
 expect catches >0
+expect river_memory >0
 expect peak_db_min -45
 expect midi_out >0
 expect clocks_out >0
 shot catch.png
+wait 38000
 tap REC
 expect hooked 0
 tap SEQ
@@ -113,34 +115,7 @@ tap HOME
 tap HOME
 expect page 3
 shot log.png
-# Timed on the bass: a bite, the hook set, the fight on SELECT.
-turn ALGO 1
-expect track 1
-tap SEQ
-expect page 1
-turn K1 -100
-turn K2 -300
-expect manual 1
-wait 300
-expect bite 1
-# a strike can spit the hook: strike again at the next bite (in a fight, REC only reels)
-tap REC
-wait 300
-tap REC
-wait 300
-tap REC
-expect fight 1
-shot fight.png
-turn SELECT 1
-wait 100
-tap REC
-wait 100
-turn SELECT 1
-wait 100
-expect fight 1
-expect page 1
-wait 6000
-expect fight 0
+# Manual encounter and off-page progression are exercised in river_simulator.txt.
 # Saved: sessions, patches, the catch log; the river starts stopped, lines out of the water.
 tap PLAY
 expect playing 0
@@ -155,6 +130,8 @@ expect catches >0
 expect scale 1
 expect send_rev 30
 expect level 80
+expect river_memory >0
+expect world 1
 # Slots: save into slot 2; units.
 tap GLO
 expect page 10

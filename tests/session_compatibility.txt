@@ -1,0 +1,30 @@
+# An actual backup written by unmodified v0.3 (fa39bf3); no new-format fixture masquerading as old data.
+wait 600
+restore tests/fixtures/v03.backup
+expect restore_rc 0
+expect volume 52
+expect level 73
+expect send_rev 32
+expect key 2
+expect scale 1
+expect catches >0
+# The user's saved patch library survives as well as the session and catch log.
+tap EDIT
+turn K2 -20
+expect level 53
+tap EDIT
+tap EDIT
+tap EDIT
+turn K1 4
+turn K2 1
+expect level 73
+tap SAVE
+wait 300
+reboot
+wait 600
+expect volume 52
+expect level 73
+expect send_rev 32
+expect key 2
+expect scale 1
+expect catches >0

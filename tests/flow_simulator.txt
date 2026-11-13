@@ -1,0 +1,43 @@
+# One real keyboard note, no autonomous FM notes: observe its crest travelling through the actual renderer.
+wait 600
+tap REC
+turn K1 -50
+turn K2 -50
+turn K4 -50
+tap GLO
+turn PRESET 3
+turn K2 1
+turn K3 2
+tap HOME
+tap PLAY
+wait 5000
+expect flow_notes 0
+expect flow_waves 0
+shot flow-empty.png
+key 0 down
+wait 300
+expect flow_notes 1
+expect flow_waves 1
+shot flow-born.png
+wait 1700
+shot flow-two-seconds.png
+wait 2000
+shot flow-four-seconds.png
+expect flow_depth >300
+key 0 up
+tap PLAY
+shot flow-paused.png
+wait 1000
+shot flow-still-paused.png
+tap PLAY
+wait 20000
+expect flow_waves 0
+tap GLO
+turn K1 1
+expect mode 1
+expect flow_waves 0
+tap HOME
+key 1 down
+wait 500
+expect flow_notes 1
+key 1 up

@@ -11,6 +11,13 @@
 #define BW_RATE 44100u
 #define BW_PPQN 96u
 #define BW_SPECIES 8 /* the four fish, then their rare cousins: species k + 4 */
+#define BW_KEYS 27
+#define BW_FLOW_WAVES 24
+enum { BW_MODE_RIVER, BW_MODE_FREE };
+enum { BW_LIFE_NONE, BW_LIFE_METEOR, BW_LIFE_UFO, BW_LIFE_JUMP, BW_LIFE_LEAF,
+       BW_LIFE_BEE, BW_LIFE_FIREFLY, BW_LIFE_COUNT };
+enum { BW_NATURE_AIR, BW_NATURE_SPLASH, BW_NATURE_BUZZ, BW_NATURE_GLINT,
+       BW_NATURE_CRICKET, BW_NATURE_CICADA, BW_NATURE_COUNT };
 
 enum { BW_BLUEGILL, BW_BASS, BW_TROUT, BW_CATFISH, BW_CRAPPIE, BW_PEACOCK, BW_BROOK, BW_FLATHEAD };
 enum { BW_GATE_REST, BW_GATE_NOTE, BW_GATE_TIE };
@@ -29,6 +36,38 @@ enum { BW_M_BRIGHT, BW_M_DARK, BW_M_GROWL, BW_M_METAL, BW_M_DIVE, BW_M_RISE, BW_
 enum { BW_FISH_IDLE, BW_FISH_WAIT, BW_FISH_BITE, BW_FISH_FIGHT };
 /* fight results */
 enum { BW_FIGHT_ON, BW_FIGHT_LANDED, BW_FIGHT_SNAPPED, BW_FIGHT_THROWN };
+enum { BW_RIVER_QUIET, BW_RIVER_GROW, BW_RIVER_APPROACH, BW_RIVER_STRIKE,
+       BW_RIVER_FIGHT, BW_RIVER_REVEAL, BW_RIVER_RETURN };
+enum { BW_WORLD_DUSK, BW_WORLD_UNDERTOW, BW_WORLD_FIREFLIES, BW_WORLDS };
+
+typedef struct
+{
+    float depth, strength;
+    uint32_t born;
+    uint8_t active, layer, note;
+} bw_flow_wave;
+/* Runtime only: the river does not alter the stored song/patch/session layouts. */
+typedef struct
+{
+    uint32_t ms, phase_at, wait_at, wait_ms, note_at[4], noise, modulation_rng;
+    uint16_t samples;
+    uint8_t enabled, world, phase, line, memory;
+    int16_t reel;
+    float growth, bloom, pressure, duck, texture_l, texture_r, body_l, body_r;
+    float wind, energy, color_phase, color_voice[4];
+    uint32_t life_rng, life_next[6], life_at, life_until, life_gap, life_seed;
+    uint32_t life_count[BW_LIFE_COUNT], motif_at, motif_off, motif_token, motif_notes;
+    uint8_t life, motif_voice, motif_note, motif_layer, motif_left, motif_pos;
+    int8_t motif[4];
+    float daylight, night, storm, reactive, note_flash[4];
+    uint8_t played_note[4], splash_stage;
+    uint32_t splash_at, splash_count;
+    float nature_target[BW_NATURE_COUNT], nature_level[BW_NATURE_COUNT];
+    float nature_phase[5], nature_step[4], nature_pan, nature_hiss, splash_filter;
+    bw_flow_wave waves[BW_FLOW_WAVES];
+    float flow_distance, flow_speed, flow_kick;
+    uint32_t flow_notes;
+} bw_river_state;
 
 typedef struct
 {
@@ -90,7 +129,7 @@ typedef struct
     float gain[BW_OPS], cw[BW_OPS], sustain[BW_OPS], fb[BW_OPS], inc[BW_OPS], amt[BW_OPS][BW_OPS - 1];
     uint8_t nsrc[BW_OPS], src[BW_OPS][BW_OPS - 1];
     uint32_t age;
-    uint8_t stage[BW_OPS], active, track, note, held, live;
+    uint8_t stage[BW_OPS], active, track, note, held, live, world;
 } bw_voice;
 /* a catch, for the screen: what was landed (or lost) and what it did */
 typedef struct
@@ -125,13 +164,15 @@ typedef struct
     float meter[BW_TRACKS]; /* each fish's output level, for the screen */
     uint32_t lfo_count;
     uint8_t live_track, arp, arp_n, arp_pos, arp_dir, rec_arm[BW_TRACKS], rec_left[BW_TRACKS];
-    int8_t arp_held[16], live_note[BW_TRACKS];
+    int8_t arp_held[BW_KEYS], live_note[BW_TRACKS];
     uint32_t arp_keys, arp_order, arp_gate_left;
     uint32_t ext_ticks, ext_seen; /* MIDI clock: ticks owed by external clock pulses */
     uint32_t midi_clock_div;
     uint8_t midi_out, midi_notes[BW_TRACKS];
     bw_event event;
     float master_gain;
+    bw_river_state river;
+    uint8_t mode, keyboard_unlocked, key_kind[BW_KEYS], key_note[BW_KEYS], key_layer[BW_KEYS];
 } bw_engine;
 
 void bw_init(bw_engine *e);
@@ -166,6 +207,18 @@ void bw_make_home(bw_engine *e, unsigned k);
 unsigned bw_weather(const bw_engine *e);
 uint32_t bw_weight_g(unsigned species, uint32_t mm);
 uint32_t bw_species_max_mm(unsigned species); /* the top of its usual range */
+void bw_river_enable(bw_engine *e);
+void bw_river_world(bw_engine *e, unsigned world); /* explicit load of a sound world */
+void bw_river_reel(bw_engine *e, int clicks);
+void bw_panel_key(bw_engine *e, unsigned key, int down, unsigned velocity);
+void bw_panel_clear(bw_engine *e);
+int bw_keyboard_full(const bw_engine *e);
+void bw_keyboard_unlock(bw_engine *e,int unlocked);
+void bw_keyboard_layer(bw_engine *e,unsigned layer);
+void bw_performance_mode(bw_engine *e,unsigned mode);
+void bw_world_stop(bw_engine *e);
+void bw_flow_project(float depth,float *center,float *width,float *y);
+extern const char *const bw_world_names[BW_WORLDS];
 /* names and data for the screen */
 extern const char *const bw_species_names[BW_SPECIES];
 extern const char *const bw_scale_names[BW_SCALES];

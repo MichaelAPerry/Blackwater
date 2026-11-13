@@ -12,10 +12,11 @@ turn K2 -300
 expect wait_max 0
 turn K3 -1
 expect manual 0
+tap REC
 expect hooked 1
 tap PLAY
 wav clip.wav
-wait 4000
+wait 2400000
 wavstop
 expect catches >0
 expect rare >0
